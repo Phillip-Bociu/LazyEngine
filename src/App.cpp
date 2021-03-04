@@ -8,24 +8,24 @@ namespace lzy
     {
         try
         {
-            Window::Init("TestApp", {WIDTH,HEIGHT});
+            Window::Init("TestApp", {WIDTH, HEIGHT});
             renderer.Init();
         }
-        catch(const std::exception& e)
+        catch (const std::exception &e)
         {
             std::cerr << e.what() << '\n';
         }
-        
     }
 
     TestApp::~TestApp()
     {
+        renderer.Shutdown();
         Window::Shutdown();
     }
 
     void TestApp::run()
     {
-        while(!Window::shouldClose())
+        while (!Window::ShouldClose())
         {
             glfwPollEvents();
         }
