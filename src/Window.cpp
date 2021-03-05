@@ -4,9 +4,11 @@
 namespace lzy
 {
     GLFWwindow* Window::window = nullptr;
+    glm::uvec2 Window::res = {};
 
     void Window::Init(const std::string_view title, const glm::uvec2& res)
     {
+        Window::res = res;
         if(!glfwInit())
         {
             
@@ -20,6 +22,7 @@ namespace lzy
 
     void Window::Shutdown()
     {
+        Window::res = {0,0};
         glfwDestroyWindow(window);
         glfwTerminate();
     }

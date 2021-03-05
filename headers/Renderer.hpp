@@ -7,7 +7,7 @@
 namespace lzy
 {
 
-    struct SwapchainSupportDetails
+    struct SwapChainSupportDetails
     {
         VkSurfaceCapabilitiesKHR capabilities;
         std::vector<VkSurfaceFormatKHR> formats;
@@ -19,10 +19,10 @@ namespace lzy
         static constexpr uint32_t invalid = std::numeric_limits<uint32_t>::max();
 
         uint32_t graphicsFamily = invalid;
-        uint32_t computeFamily = invalid;
         uint32_t presentFamily = invalid;
+        uint32_t computeFamily = invalid;
 
-        bool isComplete();
+        bool isComplete() const;
     };
 
     class Renderer
@@ -32,10 +32,13 @@ namespace lzy
         void Shutdown();
 
     private:
+
         void createInstance();
+        void setupDebugMessenger();
         void pickPhysicalDevice(QueueFamilyIndices *qFam);
-        void createDevice();
+        void createDevice(QueueFamilyIndices* qFam);
         void createSurface();
+        void createSwapchain(QueueFamilyIndices* qFam);
         QueueFamilyIndices findQueueFamily(VkPhysicalDevice physicalDevice);
         bool isDeviceSuitable(VkPhysicalDevice physicalDevice, QueueFamilyIndices *qFam);
 
@@ -46,6 +49,17 @@ namespace lzy
         VkQueue graphicsQueue;
         VkQueue presentQueue;
         VkSurfaceKHR surface;
+        VkSwapchainKHR swapchain;
+        VkExtent2D swapchainExtent;
+        VkFormat swapchainFormat;
+        std::vector<VkImage> swapchainImages;
+        ///DEBUG VARS
+        #ifdef DEBUG
+
+        VkDebugUtilsMessengerEXT debugMessenger;
+
+#endif
+
     };
 
 }
