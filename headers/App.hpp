@@ -13,7 +13,8 @@ namespace lzy
         TestApp();
         ~TestApp();
         void run();
+
     private:
-        Renderer renderer;
+        Renderer::Reqs testReqs;
     };
 }

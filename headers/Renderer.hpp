@@ -3,6 +3,7 @@
 #include <GLFW/glfw3.h>
 #include <limits>
 #include <vector>
+#include "headers/fvector.hpp"
 
 namespace lzy
 {
@@ -10,8 +11,8 @@ namespace lzy
     struct SwapChainSupportDetails
     {
         VkSurfaceCapabilitiesKHR capabilities;
-        std::vector<VkSurfaceFormatKHR> formats;
-        std::vector<VkPresentModeKHR> presentModes;
+        fvector<VkSurfaceFormatKHR> formats;
+        fvector<VkPresentModeKHR> presentModes;
     };
 
     struct QueueFamilyIndices
@@ -25,41 +26,39 @@ namespace lzy
         bool isComplete() const;
     };
 
-    class Renderer
+    namespace Renderer
     {
-    public:
-        void Init();
-        void Shutdown();
+        struct Reqs
+        {
+            VkInstance instance;
+            VkPhysicalDevice physicalDevice;
+            VkDevice device;
+            VkQueue graphicsQueue;
+            VkQueue presentQueue;
+            VkSurfaceKHR surface;
+            VkSwapchainKHR swapchain;
+            VkExtent2D swapchainExtent;
+            VkFormat swapchainFormat;
+            fvector<VkImage> swapchainImages;
 
-    private:
-
-        void createInstance();
-        void setupDebugMessenger();
-        void pickPhysicalDevice(QueueFamilyIndices *qFam);
-        void createDevice(QueueFamilyIndices* qFam);
-        void createSurface();
-        void createSwapchain(QueueFamilyIndices* qFam);
-        QueueFamilyIndices findQueueFamily(VkPhysicalDevice physicalDevice);
-        bool isDeviceSuitable(VkPhysicalDevice physicalDevice, QueueFamilyIndices *qFam);
-
-    private:
-        VkInstance instance;
-        VkPhysicalDevice physicalDevice;
-        VkDevice device;
-        VkQueue graphicsQueue;
-        VkQueue presentQueue;
-        VkSurfaceKHR surface;
-        VkSwapchainKHR swapchain;
-        VkExtent2D swapchainExtent;
-        VkFormat swapchainFormat;
-        std::vector<VkImage> swapchainImages;
-        ///DEBUG VARS
-        #ifdef DEBUG
-
-        VkDebugUtilsMessengerEXT debugMessenger;
-
+///DEBUG VARS
+#ifdef DEBUG
+            VkDebugUtilsMessengerEXT debugMessenger;
 #endif
+        };
 
-    };
+        void Init(Reqs* reqs);
+        void Shutdown(Reqs* reqs);
+
+        void createInstance(VkInstance* instance);
+        void setupDebugMessenger(VkDebugUtilsMessengerEXT* debugMessenger, VkInstance instance);
+        void pickPhysicalDevice(VkPhysicalDevice *physicalDevice, VkInstance instance, VkSurfaceKHR surface, QueueFamilyIndices *qFam);
+        void createDevice(VkDevice *device, VkPhysicalDevice physicalDevice, QueueFamilyIndices *qFam);
+        void getQueues(VkQueue *graphicsQueue, VkQueue *presentQueue, VkDevice device, QueueFamilyIndices* qFam);
+        void createSurface(VkSurfaceKHR* surface, VkInstance VkInstance);
+        void createSwapchain(VkSwapchainKHR *swapchain, VkFormat *swapchainFormat, VkExtent2D *swapchainExtent, VkDevice device, VkPhysicalDevice physicalDevice, VkSurfaceKHR surface, QueueFamilyIndices *qFam);
+        QueueFamilyIndices findQueueFamily(VkPhysicalDevice physicalDevice, VkSurfaceKHR surface);
+        bool isDeviceSuitable(VkPhysicalDevice physicalDevice, VkSurfaceKHR surface, QueueFamilyIndices *qFam);
+    }
 
 }

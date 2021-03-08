@@ -9,7 +9,7 @@ namespace lzy
         try
         {
             Window::Init("TestApp", {WIDTH, HEIGHT});
-            renderer.Init();
+            Renderer::Init(&testReqs);
         }
         catch (const std::exception &e)
         {
@@ -19,7 +19,7 @@ namespace lzy
 
     TestApp::~TestApp()
     {
-        renderer.Shutdown();
+        Renderer::Shutdown(&testReqs);
         Window::Shutdown();
     }
 

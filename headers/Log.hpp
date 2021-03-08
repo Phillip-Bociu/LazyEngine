@@ -1,5 +1,5 @@
 #pragma once
-#define LOG_LVL 2
+#define LOG_LVL 3
 
 #ifdef DEBUG
     #if LOG_LVL == 3
