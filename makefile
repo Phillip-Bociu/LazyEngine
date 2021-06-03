@@ -1,4 +1,4 @@
-LIBS = -lvulkan -lX11 -lpthread -lxcb -lX11-xcb -lxkbcommon
+LIBS = -lglfw -lvulkan -lX11 -lpthread -lxcb -lX11-xcb -lxkbcommon
 DCFLAGS = -std=gnu99 -D DEBUG -I./headers -c -O0 -Wall
 DCFLAGS2 = -std=gnu99 -D DEBUG -I./headers -O0 -Wall -g
 
