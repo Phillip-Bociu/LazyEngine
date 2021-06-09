@@ -1,5 +1,6 @@
 #include "LzyApplication.h"
 #include "LzyGame.h"
+#include "LzyMemory.h"
 #include "LzyLog.h"
 #include <stdlib.h>
 #include <string.h>
@@ -54,9 +55,13 @@ b8 lzy_application_create(LzyGame *pGame)
         return false;
     }
 
+    //Subsystem Initializations
+
+    lzy_memory_init();
+
+
 
     bIsInitialized = true;
-
 
     return true;
 }

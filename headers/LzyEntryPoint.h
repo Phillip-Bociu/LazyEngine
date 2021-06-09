@@ -10,7 +10,7 @@ extern b8 create_game(LzyGame *pGame);
 int main()
 {
 
-    LzyGame game = {};
+    LzyGame game = {0};
 
     LFATAL("xdd");
 
@@ -37,6 +37,7 @@ int main()
         LFATAL("%s",buffer);
         return -2;
     }
+
 
     if(!lzy_application_create(&game))
     {

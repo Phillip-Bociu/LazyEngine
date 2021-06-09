@@ -13,6 +13,7 @@ global struct LzyMemStats memStats;
 
 void lzy_memory_init()
 {
+    LINFO("Memory Subsystem Initialized");
     lzy_platform_memzero(&memStats, sizeof(memStats));
 }
 

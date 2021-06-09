@@ -25,7 +25,7 @@ void lzy_log(LzyLogLevel logLevel, const string pFormat, const string pFile, i32
 
 	va_list args;
 
-	va_start(args, pFormat);
+	va_start(args, iLine);
 	vsprintf(buffer, pFormat, args);
 	va_end(args);
 
