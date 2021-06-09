@@ -4,10 +4,10 @@
 
 typedef struct LzyGame
 {
-    b8(*fpStart)(struct LazyGame* pGame);
-    b8(*fpUpdate)(struct LazyGame* pGame, f32 fDeltaTime);
-    b8(*fpRender)(struct LazyGame* pGame, f32 fDeltaTime);
-    void(*fpOnResize)(struct LazyGame* pGame, u16 uResX, u16 uResY);
+    b8(*fpStart)(struct LzyGame* pGame);
+    b8(*fpUpdate)(struct LzyGame* pGame, f32 fDeltaTime);
+    b8(*fpRender)(struct LzyGame* pGame, f32 fDeltaTime);
+    void(*fpOnResize)(struct LzyGame* pGame, u16 uResX, u16 uResY);
     void* pData;
     LzyApplicationConfig appConfig;
 }LzyGame;

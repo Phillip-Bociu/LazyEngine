@@ -1,4 +1,43 @@
 #pragma once
+
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#define NOGDICAPMASKS
+#define NOSYSMETRICS
+#define NOMENUS
+#define NOICONS
+#define NOSYSCOMMANDS
+#define NORASTEROPS
+#define OEMRESOURCE
+#define NOATOM
+#define NOCLIPBOARD
+#define NOCOLOR
+#define NOCTLMGR
+#define NODRAWTEXT
+#define NOKERNEL
+#define NONLS
+#define NOMEMMGR
+#define NOMETAFILE
+#define NOOPENFILE
+#define NOSCROLL
+#define NOSERVICE
+#define NOSOUND
+#define NOTEXTMETRIC
+#define NOWH
+#define NOCOMM
+#define NOKANJI
+#define NOHELP
+#define NOPROFILER
+#define NODEFERWINDOWPOS
+#define NOMCX
+#define NORPC
+#define NOPROXYSTUB
+#define NOIMAGE
+#define NOTAPE
+#define NOMINMAX
+#define STRICT
+#endif
+
 #ifdef LEXPORT
 	#ifdef _MSC_VER
 	#define LAPI __declspec(dllexport)
@@ -22,7 +61,7 @@
 #define max(a, b) (((a) > (b)) ? (a) : (b))
 #endif
 
-#ifdef __GNUC__
+#ifndef _MSC_VER
 #define STATIC_ASSERT(exp, msg) _Static_assert(exp, msg) 
 #else
 #define STATIC_ASSERT(exp, msg) static_assert(exp, msg)
