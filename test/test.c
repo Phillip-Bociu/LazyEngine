@@ -1,22 +1,37 @@
-#define LZY_ASSERT_ENABLED
-#define LZY_LOG_TRACE_ENABLED
-#define LZY_LOG_INFO_ENABLED
-#define LZY_LOG_WARN_ENABLED
-#define LZY_LOG_ERROR_ENABLED
-#define LZY_LOG_FATAL_ENABLED
 
-#include "Lzy.h"
+#include <LzyEntryPoint.h>
 
-int main()
+b8 gameStart(LzyGame *pGame)
 {
+	printf("Game Started!\n");
+	return true;
+}
 
-	LzyApplicationConfig appConfig;
-	appConfig.pApplicationName = "Lzy Engine";
-	appConfig.uResX = 1280;
-	appConfig.uResY = 720;
+b8 gameUpdate(LzyGame *pGame, f32 fDeltaTime)
+{
+	//printf("Game Updated!\n");
+	return true;
+}
 
-	lzy_application_create(&appConfig);
-	lzy_application_run();
+b8 gameRender(LzyGame *pGame, f32 fDeltaTime)
+{
+	//printf("Game Rendered!\n");
+	return true;
+}
 
-	return 0;
+void gameResize(LzyGame *pGame, u16 uResX, u16 uResY)
+{
+	printf("Game Resized!\n");
+}
+
+b8 create_game(LzyGame *pGame)
+{
+	pGame->fpStart = gameStart;
+	pGame->fpUpdate = gameUpdate;
+	pGame->fpRender = gameRender;
+	pGame->fpOnResize = gameResize;
+	pGame->appConfig.pApplicationName = "Game :D";
+	pGame->appConfig.uResX = 1280;
+	pGame->appConfig.uResY = 720;
+	return true;
 }

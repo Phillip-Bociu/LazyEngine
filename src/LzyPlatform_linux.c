@@ -1,5 +1,6 @@
-#include "Lzy.h"
 #ifdef __linux__
+#include "LzyPlatform.h"
+#include "LzyLog.h"
 
 #include <xcb/xcb.h>
 #include <X11/keysym.h>
@@ -10,6 +11,7 @@
 #include <unistd.h>
 
 #include <string.h>
+#include <stdlib.h>
 
 typedef struct LzyWindow_impl
 {
@@ -21,18 +23,25 @@ typedef struct LzyWindow_impl
 	xcb_atom_t wmDeleteWin;
 } LzyWindow_impl;
 
-b8 lzy_window_create(LzyWindow* pWindow, const char *pWindowTitle, u16 uResX, u16 uResY)
+void lzy_platform_shutdown(LzyPlatform platform)
 {
-	*pWindow = malloc(sizeof(LzyWindow_impl));
-	LzyWindow_impl *pState = *pWindow;
+	LzyWindow_impl *pState = platform;
+	XAutoRepeatOn(pState->pDisplay);
+}
+
+b8 lzy_platform_create(LzyPlatform *pPlatform, const char *pWindowTitle, u16 uResX, u16 uResY)
+{
+	*pPlatform = malloc(sizeof(LzyWindow_impl));
+	LzyWindow_impl *pState = *pPlatform;
 
 	pState->pDisplay = XOpenDisplay(NULL);
+	XAutoRepeatOff(pState->pDisplay);
 
 	pState->pConnection = XGetXCBConnection(pState->pDisplay);
 
 	if (xcb_connection_has_error(pState->pConnection))
 	{
-		LFATAL("Failed to connect to X server, cannot create window");
+		LFATAL("%s", "Failed to connect to X server, cannot create window");
 		return false;
 	}
 
@@ -128,15 +137,10 @@ b8 lzy_window_create(LzyWindow* pWindow, const char *pWindowTitle, u16 uResX, u1
 	return true;
 }
 
-b8 lzy_window_should_close(LzyWindow window)
-{
-	return false;
-}
-
-b8 lzy_window_poll_events(LzyWindow window)
+b8 lzy_platform_poll_events(LzyPlatform platform)
 {
 
-	LzyWindow_impl *pState = (LzyWindow_impl *)window;
+	LzyWindow_impl *pState = (LzyWindow_impl *)platform;
 
 	xcb_generic_event_t *pEvent;
 	xcb_client_message_event_t *pClientMessage;
@@ -146,29 +150,29 @@ b8 lzy_window_poll_events(LzyWindow window)
 	while (true)
 	{
 		pEvent = xcb_poll_for_event(pState->pConnection);
-		if(!pEvent)
+		if (!pEvent)
 			break;
 
 		switch (pEvent->response_type & ~0x80)
 		{
 		case XCB_KEY_PRESS:
 		{
-			LINFO("Key Pressed");
+			LINFO("%s", "Key Pressed");
 		}
 		break;
 		case XCB_KEY_RELEASE:
 		{
-			LINFO("Key Released");
+			LINFO("%s", "Key Released");
 		}
 		break;
 		case XCB_BUTTON_PRESS:
 		{
-			LINFO("Button Pressed");
+			LINFO("%s", "Button Pressed");
 		}
 		break;
 		case XCB_BUTTON_RELEASE:
 		{
-			LINFO("Button Released");
+			LINFO("%s", "Button Released");
 		}
 		break;
 		case XCB_MOTION_NOTIFY:
@@ -195,14 +199,14 @@ b8 lzy_window_poll_events(LzyWindow window)
 	return bShouldClose;
 }
 
-f64 lzy_get_time()
+f64 lzy_platform_get_time()
 {
 	struct timeval t;
 	gettimeofday(&t, NULL);
 	return t.tv_sec + t.tv_usec * 1e-6;
 }
 
-void lzy_sleep(u64 uMs)
+void lzy_platform_sleep(u64 uMs)
 {
 #if _POSIX_C_SOURCE >= 199309L
 	struct timespec ts;
@@ -218,4 +222,28 @@ void lzy_sleep(u64 uMs)
 #endif
 }
 
+void *lzy_platform_alloc(u64 uSize, u8 uAlignment)
+{
+	return malloc(uSize);
+}
+
+void lzy_platform_free(void *ptr, u8 uAlignment)
+{
+	free(ptr);
+}
+
+void *lzy_platform_memcpy(void *pDst, void *pSrc, u64 uSize)
+{
+	return memcpy(pDst, pSrc, uSize);
+}
+
+void *lzy_platform_memset(void *pDst, u8 uVal, u64 uSize)
+{
+	return memset(pDst, uVal, uSize);
+}
+
+void *lzy_platform_memzero(void *pDst, u64 uSize)
+{
+	return memset(pDst, 0, uSize);
+}
 #endif

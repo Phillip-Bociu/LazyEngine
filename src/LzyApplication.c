@@ -1,45 +1,100 @@
-#include "Lzy.h"
+#include "LzyApplication.h"
+#include "LzyGame.h"
+#include "LzyLog.h"
+#include <stdlib.h>
+#include <string.h>
 
+
+typedef struct LzyApplication
+{
+    LzyGame *pGame;
+    f64 fLastTime;
+    LzyPlatform platform;
+    u16 uResX;
+    u16 uResY;
+    b8 bIsRunning;
+    b8 bIsSuspended;
+} LzyApplication;
 
 global b8 bIsInitialized = false;
 global LzyApplication lzyApp;
 
-
-b8 lzy_application_create(LzyApplicationConfig* pAppConfig)
+b8 lzy_application_create(LzyGame *pGame)
 {
-    if(bIsInitialized)
+    if (bIsInitialized)
     {
-        LERROR("Application was already created");
+        LERROR("%s", "Application was already created");
         return false;
     }
 
+    LTRACE("lol %f", 3.14f);
+    LINFO("lol %f", 3.14f);
+    LWARN("lol %f", 3.14f);
+    LERROR("lol %f", 3.14f);
+    LFATAL("lol %f", 3.14f);
+    LASSERT(false, "Assertion Test");
 
-	LTRACE("lol %f", 3.14f);
-	LINFO("lol %f", 3.14f);
-	LWARN("lol %f", 3.14f);
-	LERROR("lol %f", 3.14f);
-	LFATAL("lol %f", 3.14f);
-	LASSERT(false, "Assertion Test");
-	if(!lzy_window_create(&lzyApp.pWindow, pAppConfig->pApplicationName, pAppConfig->uResX ,pAppConfig->uResY))
+    if (!lzy_platform_create(&lzyApp.platform,
+                             pGame->appConfig.pApplicationName,
+                             pGame->appConfig.uResX,
+                             pGame->appConfig.uResY))
     {
         return false;
     }
-    lzyApp.fLastTime = lzy_get_time();
-    lzyApp.uResX = pAppConfig->uResX;
-    lzyApp.uResY = pAppConfig->uResY;
+    lzyApp.pGame = pGame;
+    lzyApp.fLastTime = lzy_platform_get_time();
+    lzyApp.uResX = pGame->appConfig.uResX;
+    lzyApp.uResY = pGame->appConfig.uResY;
     lzyApp.bIsRunning = true;
     lzyApp.bIsSuspended = false;
-    
+
+    if(!pGame->fpStart(pGame))
+    {
+        LFATAL("%s","Could not start the game");
+        return false;
+    }
+
+
     bIsInitialized = true;
+
+
     return true;
 }
 
-
 b8 lzy_application_run()
 {
-	while(lzyApp.bIsRunning)
-	{
-		lzyApp.bIsRunning = !lzy_window_poll_events(lzyApp.pWindow);
-	}
+    lzyApp.fLastTime = lzy_platform_get_time();
 
+    while (lzyApp.bIsRunning)
+    {
+        f64 fCurrentTime = lzy_platform_get_time();
+        f32 fDeltaTime = fCurrentTime - lzyApp.fLastTime;
+        lzyApp.fLastTime = fCurrentTime;
+
+        lzyApp.bIsRunning = !lzy_platform_poll_events(lzyApp.platform);
+        
+        if(!lzyApp.bIsSuspended)
+        {
+            if(!lzyApp.pGame->fpUpdate(lzyApp.pGame, fDeltaTime))
+            {
+                LFATAL("%s","Game update failed!");
+                break;
+            }
+
+            if(!lzyApp.pGame->fpRender(lzyApp.pGame, fDeltaTime))
+            {
+                LFATAL("%s","Game Render failed!");
+                break;
+            }
+        }
+
+        u64 uMs = (u64)(1.0/60.0 - (lzy_platform_get_time() - fCurrentTime) * 1000.0);
+        lzy_platform_sleep(uMs);
+    }
+
+    lzyApp.bIsRunning = false;
+
+    lzy_platform_shutdown(lzyApp.platform);
+
+    return true;
 }

@@ -1,8 +1,6 @@
 #include "Lzy.h"
 #include <stdio.h>
 #include <stdarg.h>
-#ifdef __linux__
-
 void lzy_log(LzyLogLevel logLevel, const string pFormat, const string pFile, i32 iLine, ...)
 {
 
@@ -32,10 +30,6 @@ void lzy_log(LzyLogLevel logLevel, const string pFormat, const string pFile, i32
 	va_end(args);
 
 	printf(prefixColors[logLevel]);
-	printf("%s[%s, line %d]: %s\n", prefixes[logLevel], pFile, iLine, buffer);
+	printf("[CORE]%s[%s, line %d]: %s\n", prefixes[logLevel], pFile, iLine, buffer);
 	printf(resetColor);
 }
-
-#endif
-
-
