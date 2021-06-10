@@ -48,33 +48,25 @@ b8 lzy_platform_create(LzyPlatform *pPlatform, const char *pWindowTitle, u16 uRe
 	const xcb_setup_t *pSetup = xcb_get_setup(pState->pConnection);
 
 	xcb_screen_iterator_t iter = xcb_setup_roots_iterator(pSetup);
-	i32 iScreen = 0;
-
-	for (i32 s = iScreen; s > 0; s--)
-	{
-		xcb_screen_next(&iter);
-	}
-
 	pState->pScreen = iter.data;
 
 	pState->window = xcb_generate_id(pState->pConnection);
 
 	u32 uEventValues = XCB_EVENT_MASK_BUTTON_PRESS | XCB_EVENT_MASK_BUTTON_RELEASE |
-					   XCB_EVENT_MASK_KEY_PRESS | XCB_EVENT_MASK_KEY_RELEASE |
-					   XCB_EVENT_MASK_EXPOSURE | XCB_EVENT_MASK_POINTER_MOTION |
-					   XCB_EVENT_MASK_STRUCTURE_NOTIFY;
+			   XCB_EVENT_MASK_KEY_PRESS | XCB_EVENT_MASK_KEY_RELEASE |
+			   XCB_EVENT_MASK_EXPOSURE | XCB_EVENT_MASK_POINTER_MOTION |
+			   XCB_EVENT_MASK_STRUCTURE_NOTIFY;
 
 	u32 uEventMask = XCB_CW_BACK_PIXEL | XCB_CW_EVENT_MASK;
 
 	u32 uValueList[] = {pState->pScreen->black_pixel, uEventValues};
 
 	xcb_void_cookie_t cookie = xcb_create_window(
-
 		pState->pConnection,
 		XCB_COPY_FROM_PARENT,
 		pState->window,
 		pState->pScreen->root,
-		0, 0,
+		500, 500,
 		uResX, uResY,
 		0,
 		XCB_WINDOW_CLASS_INPUT_OUTPUT,

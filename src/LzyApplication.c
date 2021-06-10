@@ -69,7 +69,7 @@ b8 lzy_application_create(LzyGame *pGame)
 b8 lzy_application_run()
 {
     lzyApp.fLastTime = lzy_platform_get_time();
-
+    
     while (lzyApp.bIsRunning)
     {
         f64 fCurrentTime = lzy_platform_get_time();
@@ -92,9 +92,6 @@ b8 lzy_application_run()
                 break;
             }
         }
-
-        u64 uMs = (u64)(1.0/60.0 - (lzy_platform_get_time() - fCurrentTime) * 1000.0);
-        lzy_platform_sleep(uMs);
     }
 
     lzyApp.bIsRunning = false;

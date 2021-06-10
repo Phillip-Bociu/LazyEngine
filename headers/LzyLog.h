@@ -10,11 +10,7 @@
 #define LZY_LOG_ERROR_ENABLED
 #define LZY_LOG_FATAL_ENABLED
 
-#ifdef _WIN32
-#define OPTIONAL_VARIADIC ,
-#elif __linux__
-#define OPTIONAL_VARIADIC __VA_OPT__(,)
-#endif
+
 
 typedef enum LzyLogLevel
 {
