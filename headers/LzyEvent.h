@@ -1,7 +1,7 @@
 #pragma once
 #include "LzyDefines.h"
 #define LZY_MAX_CORE_LISTENERS 256
-
+#define LZY_MAX_USER_LISTENERS 1024
 typedef struct LzyEventData
 {
 	union
@@ -20,7 +20,6 @@ typedef struct LzyEventData
 
 		c8 c[16];
 	};
-
 } LzyEventData;
 
 //TODO: define how each code modifies the eData parameter
@@ -36,7 +35,6 @@ typedef enum LzyEventCode
 	LZY_EVENT_CODE_MOUSE_MOVE,
 	LZY_EVENT_CODE_MOUSE_BUTTON_PRESS,
 	LZY_EVENT_CODE_MOUSE_BUTTON_RELEASE,
-	LZY_EVENT_CODE_MOUSE_BUTTON_PRESS,
 	LZY_EVENT_CODE_CORE_MAX = 255,
 	LZY_EVENT_CODE_MAX = 4096
 } LzyEventCode;
@@ -46,12 +44,12 @@ typedef b8 (*LzyfpOnEvent)(u16 uCode, void *pSender, void* pListener, LzyEventDa
 b8 lzy_event_init();
 void lzy_event_shutdown();
 
-b8 lzy_event_core_register(LzyfpOnEvent fpOnEvent);
-b8 lzy_event_core_deregister(LzyfpOnEvent fpOnEvent);
+b8 lzy_event_core_register(LzyfpOnEvent fpOnEvent, void* pListener);
+b8 lzy_event_core_deregister(LzyfpOnEvent fpOnEvent, void* pListener);
 
 LAPI b8 lzy_event_reserve_slots(u64 uSlots);
-LAPI b8 lzy_event_register(LzyfpOnEvent fpOnEvent);
-LAPI b8 lzy_event_deregister(LzyfpOnEvent fpOnEvent);
+LAPI b8 lzy_event_register(LzyfpOnEvent fpOnEvent, void* pListener);
+LAPI b8 lzy_event_deregister(LzyfpOnEvent fpOnEvent, void* pListener);
 
 LAPI b8 lzy_event_emit(u16 uCode, void* pSender, LzyEventData eData);
 

@@ -2,6 +2,7 @@
 #include "LzyGame.h"
 #include "LzyMemory.h"
 #include "LzyLog.h"
+#include "LzyEvent.h"
 #include <stdlib.h>
 #include <string.h>
 
@@ -24,16 +25,16 @@ b8 lzy_application_create(LzyGame *pGame)
 {
     if (bIsInitialized)
     {
-        LERROR("%s", "Application was already created");
+        LCOREERROR("%s", "Application was already created");
         return false;
     }
 
-    LTRACE("lol %f", 3.14f);
-    LINFO("lol %f", 3.14f);
-    LWARN("lol %f", 3.14f);
-    LERROR("lol %f", 3.14f);
-    LFATAL("lol %f", 3.14f);
-    LASSERT(false, "Assertion Test");
+    LCORETRACE("lol %f", 3.14f);
+    LCOREINFO("lol %f", 3.14f);
+    LCOREWARN("lol %f", 3.14f);
+    LCOREERROR("lol %f", 3.14f);
+    LCOREFATAL("lol %f", 3.14f);
+    LCOREASSERT(false, "Assertion Test");
 
     if (!lzy_platform_create(&lzyApp.platform,
                              pGame->appConfig.pApplicationName,
@@ -51,14 +52,28 @@ b8 lzy_application_create(LzyGame *pGame)
 
     if(!pGame->fpStart(pGame))
     {
-        LFATAL("%s","Could not start the game");
+        LCOREFATAL("%s","Could not start the game");
         return false;
     }
 
     //Subsystem Initializations
 
-    lzy_memory_init();
+    if(!lzy_memory_init())
+    {
+        LCOREFATAL("Could not initialize memory subsystem!");
+        return false;
+    }
+    if(!lzy_event_init())
+    {
+        LCOREFATAL("Could not initialize event subsystem!");
+        return false;
+    }
 
+    if(!lzy_renderer_init())
+    {
+        LCOREFATAL("Could not initialize renderer subsystem!");
+        return false;
+    }
 
 
     bIsInitialized = true;
@@ -82,13 +97,13 @@ b8 lzy_application_run()
         {
             if(!lzyApp.pGame->fpUpdate(lzyApp.pGame, fDeltaTime))
             {
-                LFATAL("%s","Game update failed!");
+                LCOREFATAL("%s","Game update failed!");
                 break;
             }
 
             if(!lzyApp.pGame->fpRender(lzyApp.pGame, fDeltaTime))
             {
-                LFATAL("%s","Game Render failed!");
+                LCOREFATAL("%s","Game Render failed!");
                 break;
             }
         }

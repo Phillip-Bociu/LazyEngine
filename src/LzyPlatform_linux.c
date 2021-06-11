@@ -41,7 +41,7 @@ b8 lzy_platform_create(LzyPlatform *pPlatform, const char *pWindowTitle, u16 uRe
 
 	if (xcb_connection_has_error(pState->pConnection))
 	{
-		LFATAL("%s", "Failed to connect to X server, cannot create window");
+		LCOREFATAL("%s", "Failed to connect to X server, cannot create window");
 		return false;
 	}
 
@@ -122,7 +122,7 @@ b8 lzy_platform_create(LzyPlatform *pPlatform, const char *pWindowTitle, u16 uRe
 	i32 iStreamResult = xcb_flush(pState->pConnection);
 	if (iStreamResult <= 0)
 	{
-		LFATAL("Could not flush XCB stream, error %d", iStreamResult);
+		LCOREFATAL("Could not flush XCB stream, error %d", iStreamResult);
 		return false;
 	}
 

@@ -11,10 +11,11 @@ struct LzyMemStats
 
 global struct LzyMemStats memStats;
 
-void lzy_memory_init()
+b8 lzy_memory_init()
 {
     LINFO("Memory Subsystem Initialized");
     lzy_platform_memzero(&memStats, sizeof(memStats));
+    return true;
 }
 
 void lzy_memory_shutdown()
@@ -36,21 +37,6 @@ void* lzy_alloc(u64 uSize, u8 uAlignment, LzyMemoryTag memTag)
     void* retval = lzy_platform_alloc(uSize, uAlignment);
     LASSERT(retval != NULL, "Out of Memory.");
     lzy_platform_memzero(retval, uSize);
-    return retval;
-}
-
-void* lzy_realloc(void* ptr, u64 uOldSize, u64 uNewSize, u8 uAlignment, LzyMemoryTag memTag)
-{
-    if (memTag == LZY_MEMORY_TAG_UNKNOWN)
-    {
-        LWARN("Untagged memory reallocation!");
-    }
-
-    memStats.uTotalAllocs += (i64)(uNewSize - uOldSize);
-    memStats.uTaggedAllocs[memTag] += (i64)(uNewSize - uOldSize);
-    void* retval = lzy_platform_realloc(ptr, uNewSize);
-    LASSERT(retval != NULL, "Out of Memory");
-    lzy_platform_memzero(retval, uNewSize);
     return retval;
 }
 
