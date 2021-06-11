@@ -98,6 +98,11 @@ b8 lzy_platform_poll_events(LzyPlatform platform)
 
 	return false;
 }
+
+void* lzy_platform_realloc(void* ptr, u64 uSize)
+{
+	return realloc(ptr, uSize);
+}
 void lzy_platform_shutdown(LzyPlatform platform)
 {
 
