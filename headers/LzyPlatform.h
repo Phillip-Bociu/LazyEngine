@@ -7,7 +7,6 @@ b8 lzy_platform_create(LzyPlatform* pPlatform, const char* pWindowTitle,u16 uRes
 b8 lzy_platform_poll_events(LzyPlatform platform);
 void lzy_platform_shutdown(LzyPlatform platform);
 void* lzy_platform_alloc(u64 uSize, u8 uAlignment);
-void* lzy_platform_realloc(void* ptr, u64 uSize);
 void lzy_platform_free(void* ptr, u8 uAlignment);
 void* lzy_platform_memcpy(void* pDst, void* pSrc, u64 uSize);
 void* lzy_platform_memset(void* pDst, u8 uVal, u64 uSize);

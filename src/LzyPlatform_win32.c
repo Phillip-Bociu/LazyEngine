@@ -9,8 +9,9 @@
 typedef struct LzyPlatform_impl
 {
 	HWND hWindow;
-	LARGE_INTEGER iPerfFreq;
 }LzyPlatform_impl;
+
+global LARGE_INTEGER iPerfFreq;
 
 internal_func LRESULT LzyWindowProc(HWND hWindow, UINT msg, WPARAM wParam, LPARAM lParam)
 {
@@ -33,6 +34,7 @@ internal_func LRESULT LzyWindowProc(HWND hWindow, UINT msg, WPARAM wParam, LPARA
 
 b8 lzy_platform_create(LzyPlatform* pPlatform, const char* pWindowTitle, u16 uResX, u16 uResY)
 {
+	QueryPerformanceFrequency(&iPerfFreq);
 	wchar_t pLongWindowTitle[256];
 	i32 iTitleLen = strlen(pWindowTitle);
 	for (i32 i = 0; i <= iTitleLen; i++)
@@ -66,7 +68,7 @@ b8 lzy_platform_create(LzyPlatform* pPlatform, const char* pWindowTitle, u16 uRe
 
 	pState->hWindow = CreateWindow(L"LzyWindowClass",
 								   pLongWindowTitle,
-								   WS_OVERLAPPEDWINDOW | WS_VISIBLE,
+								   WS_VISIBLE,//WS_OVERLAPPEDWINDOW | WS_VISIBLE,
 								   CW_USEDEFAULT, CW_USEDEFAULT,
 								   uResX, uResY,
 								   NULL, NULL,
@@ -80,7 +82,6 @@ b8 lzy_platform_create(LzyPlatform* pPlatform, const char* pWindowTitle, u16 uRe
 
 	return true;
 }
-
 
 b8 lzy_platform_poll_events(LzyPlatform platform)
 {
@@ -99,44 +100,46 @@ b8 lzy_platform_poll_events(LzyPlatform platform)
 	return false;
 }
 
-void* lzy_platform_realloc(void* ptr, u64 uSize)
-{
-	return realloc(ptr, uSize);
-}
 void lzy_platform_shutdown(LzyPlatform platform)
 {
 
 }
+
 void* lzy_platform_alloc(u64 uSize, u8 uAlignment)
 {
 	return malloc(uSize);
 }
+
 void lzy_platform_free(void* ptr, u8 uAlignment)
 {
 	free(ptr);
 }
+
 void* lzy_platform_memcpy(void* pDst, void* pSrc, u64 uSize)
 {
 	return memcpy(pDst, pSrc, uSize);
 }
+
 void* lzy_platform_memset(void* pDst, u8 uVal, u64 uSize)
 {
 	return memset(pDst, uVal, uSize);
 }
+
 void* lzy_platform_memzero(void* pDst, u64 uSize)
 {
 	return ZeroMemory(pDst, uSize);
 }
+
 void lzy_platform_sleep(u64 uMs)
 {
 	Sleep(uMs);
 }
+
 f64 lzy_platform_get_time()
 {
-
 	LARGE_INTEGER t;
 	QueryPerformanceCounter(&t);
-	t.QuadPart;
+	return (f64)t.QuadPart / (f64)iPerfFreq.QuadPart;
 }
 
 #endif

@@ -16,6 +16,7 @@ b8 lzy_memory_init()
     LINFO("Memory Subsystem Initialized");
     lzy_platform_memzero(&memStats, sizeof(memStats));
     return true;
+    
 }
 
 void lzy_memory_shutdown()
@@ -28,14 +29,14 @@ void* lzy_alloc(u64 uSize, u8 uAlignment, LzyMemoryTag memTag)
 {
     if(memTag == LZY_MEMORY_TAG_UNKNOWN)
     {
-        LWARN("Untagged memory allocation!");
+        LCOREWARN("Untagged memory allocation!");
     }
 
     memStats.uTotalAllocs += uSize;
     memStats.uTaggedAllocs[memTag] += uSize;
 
     void* retval = lzy_platform_alloc(uSize, uAlignment);
-    LASSERT(retval != NULL, "Out of Memory.");
+    LCOREASSERT(retval != NULL, "Out of Memory.");
     lzy_platform_memzero(retval, uSize);
     return retval;
 }
@@ -44,7 +45,7 @@ void lzy_free(void* ptr, u64 uSize, LzyMemoryTag memTag)
 {
     if(memTag == LZY_MEMORY_TAG_UNKNOWN)
     {
-        LWARN("Untagged memory deallocation!");
+        LCOREWARN("Untagged memory deallocation!");
     }
 
     memStats.uTotalAllocs -= uSize;

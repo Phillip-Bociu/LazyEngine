@@ -4,6 +4,7 @@
 #include <vulkan/vulkan.h>
 #include <string.h>
 
+
 typedef struct LzyRendererState
 {
 	VkInstance instance;

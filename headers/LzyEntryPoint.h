@@ -12,8 +12,6 @@ int main()
 
     LzyGame game = {0};
 
-    LFATAL("xdd");
-
     if (!create_game(&game))
     {
         LFATAL("%s","Could not create game!");
@@ -34,19 +32,19 @@ int main()
             strcat(buffer, "- fpRender\n");
         if (!game.fpOnResize)
             strcat(buffer, "- fpOnResize\n");
-        LFATAL("%s",buffer);
+        LCOREFATAL("%s",buffer);
         return -2;
     }
 
 
     if(!lzy_application_create(&game))
     {
-        LFATAL("%s","Could not create application!");
+        LCOREFATAL("%s","Could not create application!");
         return 1;
     }
     if(!lzy_application_run())
     {
-        LFATAL("%s", "Application crashed!");
+        LCOREFATAL("%s", "Application crashed!");
         return 2;
     }
 

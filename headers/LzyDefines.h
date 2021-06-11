@@ -52,13 +52,9 @@
 #endif
 #endif
 
-#ifdef _WIN32
-#define OPTIONAL_VARIADIC ,
-#elif __linux__
-#define OPTIONAL_VARIADIC __VA_OPT__(,)
-#endif
 
 #define MAKE_HANDLE(type) typedef struct type##_t* type
+
 
 #ifndef min
 #define min(a,b) (((a) < (b)) ? (a) : (b))
