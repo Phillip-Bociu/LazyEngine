@@ -1,6 +1,7 @@
 #include "LzyDefines.h"
 #include "LzyLog.h"
 #include "LzyPlatform.h"
+#include "LzyMemory.h"
 #ifdef _WIN32
 #include <Windows.h>
 #include <stdlib.h>
@@ -23,6 +24,10 @@ internal_func LRESULT LzyWindowProc(HWND hWindow, UINT msg, WPARAM wParam, LPARA
 		PostQuitMessage(0);
 		//lResult = DefWindowProc(hWindow, msg, wParam, lParam);
 	}break;
+	case WM_KEYDOWN:
+	{
+		lzy_get_memstats();
+	}break;
 	default:
 	{
 		//lResult = DefWindowProc(hWindow, msg, wParam, lParam);
@@ -42,7 +47,7 @@ b8 lzy_platform_create(LzyPlatform* pPlatform, const char* pWindowTitle, u16 uRe
 		pLongWindowTitle[i] = pWindowTitle[i];
 	}
 
-	*pPlatform = malloc(sizeof(LzyPlatform_impl));
+	*pPlatform = lzy_alloc(sizeof(LzyPlatform_impl), 8, LZY_MEMORY_TAG_PLATFORM);
 	LzyPlatform_impl* pState = *pPlatform;
 
 	WNDCLASS windowClass;
@@ -68,7 +73,7 @@ b8 lzy_platform_create(LzyPlatform* pPlatform, const char* pWindowTitle, u16 uRe
 
 	pState->hWindow = CreateWindow(L"LzyWindowClass",
 								   pLongWindowTitle,
-								   WS_VISIBLE,//WS_OVERLAPPEDWINDOW | WS_VISIBLE,
+								   WS_OVERLAPPEDWINDOW | WS_VISIBLE,
 								   CW_USEDEFAULT, CW_USEDEFAULT,
 								   uResX, uResY,
 								   NULL, NULL,
@@ -82,6 +87,19 @@ b8 lzy_platform_create(LzyPlatform* pPlatform, const char* pWindowTitle, u16 uRe
 
 	return true;
 }
+
+void lzy_platform_get_surface_create_info(LzyPlatform platform, LzyWindowSurfaceCreateInfo* pSurface)
+{
+	LzyPlatform_impl* pState = platform;
+	pSurface->sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
+	pSurface->hinstance = GetModuleHandle(NULL);
+	pSurface->hwnd = pState->hWindow;
+}
+VkResult lzy_platform_create_surface(VkInstance instance, const LzyWindowSurfaceCreateInfo* pCreateInfo, const VkAllocationCallbacks* pAllocs, VkSurfaceKHR* pSurface)
+{
+	return vkCreateWin32SurfaceKHR(instance, pCreateInfo, pAllocs, pSurface);
+}
+
 
 b8 lzy_platform_poll_events(LzyPlatform platform)
 {

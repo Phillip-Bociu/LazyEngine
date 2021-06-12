@@ -72,9 +72,23 @@ void* lzy_memcpy(void* pDst, void* pSrc, u64 uSize)
 //TODO
 char* lzy_get_memstats()
 {
-    char* retval = lzy_alloc(LZY_MEMORY_TAG_MAX * 64, 1, LZY_MEMORY_TAG_STRING);
+    //char* retval = lzy_alloc(LZY_MEMORY_TAG_MAX * 64, 1, LZY_MEMORY_TAG_STRING);
 
+    const char* ppByteAfixes[] = {"B", "KB", "MB", "GB", "TB"};
+
+
+    f64 fTotalAllocs = memStats.uTotalAllocs;
+    u32 uOrder = 0;
+
+    while (fTotalAllocs > 1024.0)
+    {
+        fTotalAllocs /= 1024.0;
+        uOrder++;
+    }
     
-    return retval;
+
+    LCORETRACE("Total allocations: %f%s", fTotalAllocs, ppByteAfixes[uOrder]);
+    
+    return NULL;
 }
 

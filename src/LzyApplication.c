@@ -1,4 +1,6 @@
+#include "LzyPlatform.h"
 #include "LzyApplication.h"
+#include "LzyRenderer.h"
 #include "LzyGame.h"
 #include "LzyMemory.h"
 #include "LzyLog.h"
@@ -84,10 +86,18 @@ b8 lzy_application_create(LzyGame *pGame)
 
 b8 lzy_application_run()
 {
-    
+    f64 fTime = 0.0;
+    u64 uFrameCounter = 0;
     while (lzyApp.bIsRunning)
     {
         lzy_time_step(&lzyApp.clock);
+        fTime += lzy_time_get_deltatime(lzyApp.clock);
+        if (fTime >= 1.0)
+        {
+            fTime = 0;
+            LCOREINFO("FPS:%llu", uFrameCounter);
+            uFrameCounter = 0;
+        }
         lzyApp.bIsRunning = !lzy_platform_poll_events(lzyApp.platform);
         
         if(!lzyApp.bIsSuspended)
@@ -105,7 +115,8 @@ b8 lzy_application_run()
             }
         }
 
-        LCOREINFO("FPS:%f", 1.0 / lzy_time_get_deltatime(lzyApp.clock));
+        uFrameCounter++;
+        
     }
 
     lzyApp.bIsRunning = false;

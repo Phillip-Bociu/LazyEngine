@@ -63,6 +63,10 @@
 #define max(a, b) (((a) > (b)) ? (a) : (b))
 #endif
 
+#ifndef countof(arr)
+#define countof(arr) (sizeof(arr) / sizeof(*arr))
+#endif
+
 #ifndef _MSC_VER
 #define STATIC_ASSERT(exp, msg) _Static_assert(exp, msg) 
 #else

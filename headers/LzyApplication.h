@@ -1,6 +1,5 @@
 #pragma once
 #include "LzyDefines.h"
-#include "LzyPlatform.h"
 
 struct LzyGame;
 

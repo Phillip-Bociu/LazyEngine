@@ -6,6 +6,10 @@
 #include <vulkan/vulkan_xcb.h>
 typedef VkXcbSurfaceCreateInfoKHR LzyWindowSurfaceCreateInfo;
 #elif _WIN32
+#include <Windows.h>
+#include <vulkan/vulkan_win32.h>
+typedef VkWin32SurfaceCreateInfoKHR LzyWindowSurfaceCreateInfo;
+#define LZY_SURFACE_EXT_NAME "VK_KHR_win32_surface"
 #endif
 
 
