@@ -29,6 +29,21 @@ void lzy_platform_shutdown(LzyPlatform platform)
 	XAutoRepeatOn(pState->pDisplay);
 }
 
+
+void lzy_platform_get_surface_create_info(LzyPlatform platform, LzyWindowSurfaceCreateInfo* pSurface)
+{
+	LzyWindow_impl* pState = platform;
+	pSurface->flags = 0;
+	pSurface->connection = pState->pConnection;
+	pSurface->window = pState->window;
+}
+
+VkResult lzy_platform_create_surface(VkInstance instance, const LzyWindowSurfaceCreateInfo* pCreateInfo, const VkAllocationCallbacks* pAllocs, VkSurfaceKHR* pSurface)
+{
+	return vkCreateXcbSurfaceKHR(instance, pCreateInfo, pAllocs, pSurface);
+}
+
+
 b8 lzy_platform_create(LzyPlatform *pPlatform, const char *pWindowTitle, u16 uResX, u16 uResY)
 {
 	*pPlatform = malloc(sizeof(LzyWindow_impl));

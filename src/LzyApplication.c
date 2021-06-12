@@ -3,6 +3,7 @@
 #include "LzyMemory.h"
 #include "LzyLog.h"
 #include "LzyEvent.h"
+#include "LzyTime.h"
 #include <stdlib.h>
 #include <string.h>
 
@@ -10,7 +11,7 @@
 typedef struct LzyApplication
 {
     LzyGame *pGame;
-    f64 fLastTime;
+    LzyTime clock;    
     LzyPlatform platform;
     u16 uResX;
     u16 uResY;
@@ -44,7 +45,7 @@ b8 lzy_application_create(LzyGame *pGame)
         return false;
     }
     lzyApp.pGame = pGame;
-    lzyApp.fLastTime = lzy_platform_get_time();
+    lzy_time_start(&lzyApp.clock);
     lzyApp.uResX = pGame->appConfig.uResX;
     lzyApp.uResY = pGame->appConfig.uResY;
     lzyApp.bIsRunning = true;
@@ -69,7 +70,7 @@ b8 lzy_application_create(LzyGame *pGame)
         return false;
     }
 
-    if(!lzy_renderer_init())
+    if(!lzy_renderer_init(lzyApp.platform))
     {
         LCOREFATAL("Could not initialize renderer subsystem!");
         return false;
@@ -83,30 +84,28 @@ b8 lzy_application_create(LzyGame *pGame)
 
 b8 lzy_application_run()
 {
-    lzyApp.fLastTime = lzy_platform_get_time();
     
     while (lzyApp.bIsRunning)
     {
-        f64 fCurrentTime = lzy_platform_get_time();
-        f32 fDeltaTime = fCurrentTime - lzyApp.fLastTime;
-        lzyApp.fLastTime = fCurrentTime;
-
+        lzy_time_step(&lzyApp.clock);
         lzyApp.bIsRunning = !lzy_platform_poll_events(lzyApp.platform);
         
         if(!lzyApp.bIsSuspended)
         {
-            if(!lzyApp.pGame->fpUpdate(lzyApp.pGame, fDeltaTime))
+            if(!lzyApp.pGame->fpUpdate(lzyApp.pGame, lzy_time_get_deltatime(lzyApp.clock)))
             {
                 LCOREFATAL("%s","Game update failed!");
                 break;
             }
 
-            if(!lzyApp.pGame->fpRender(lzyApp.pGame, fDeltaTime))
+            if(!lzyApp.pGame->fpRender(lzyApp.pGame, lzy_time_get_deltatime(lzyApp.clock)))
             {
                 LCOREFATAL("%s","Game Render failed!");
                 break;
             }
         }
+
+        LCOREINFO("FPS:%f", 1.0 / lzy_time_get_deltatime(lzyApp.clock));
     }
 
     lzyApp.bIsRunning = false;

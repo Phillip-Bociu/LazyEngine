@@ -2,7 +2,7 @@
 #include "LzyDefines.h"
 #include "LzyLog.h"
 
-
+//TODO: make custom allocator for pre-allocated memory
 typedef enum LzyMemoryTag
 {
 	LZY_MEMORY_TAG_UNKNOWN,
