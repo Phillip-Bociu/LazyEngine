@@ -72,7 +72,7 @@ b8 lzy_application_create(LzyGame *pGame)
         return false;
     }
 
-    if(!lzy_renderer_init(lzyApp.platform))
+    if(!lzy_renderer_init())
     {
         LCOREFATAL("Could not initialize renderer subsystem!");
         return false;
@@ -82,6 +82,21 @@ b8 lzy_application_create(LzyGame *pGame)
     bIsInitialized = true;
 
     return true;
+}
+
+void lzy_application_get_framebuffer_size(u16* pX, u16* pY)
+{
+    lzy_platform_get_framebuffer_size(lzyApp.platform, pX, pY);
+}
+
+void lzy_application_get_surface_create_info(LzyWindowSurfaceCreateInfo* pSurface)
+{
+    lzy_platform_get_surface_create_info(lzyApp.platform, pSurface);
+}
+
+VkResult lzy_application_create_surface(VkInstance instance, const LzyWindowSurfaceCreateInfo* pCreateInfo, const VkAllocationCallbacks* pAllocs, VkSurfaceKHR* pSurface)
+{
+    return lzy_platform_create_surface(instance, pCreateInfo, pAllocs, pSurface);
 }
 
 b8 lzy_application_run()

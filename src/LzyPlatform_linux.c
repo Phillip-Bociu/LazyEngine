@@ -30,9 +30,27 @@ void lzy_platform_shutdown(LzyPlatform platform)
 }
 
 
+void lzy_platform_get_framebuffer_size(LzyPlatform platform, u16* pX, u16* pY)
+{
+
+	LzyWindow_impl *pState = platform;
+	
+	xcb_get_geometry_cookie_t cookie =  xcb_get_geometry(pState->pConnection, pState->window);
+
+	xcb_get_geometry_reply_t* reply = xcb_get_geometry_reply(pState->pConnection, cookie, NULL);
+
+	if(pX)
+		*pX = reply->width;
+	if(pY)
+		*pY = reply->height;
+
+	free(reply);
+}
+
 void lzy_platform_get_surface_create_info(LzyPlatform platform, LzyWindowSurfaceCreateInfo* pSurface)
 {
 	LzyWindow_impl* pState = platform;
+	pSurface->sType = VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR;
 	pSurface->flags = 0;
 	pSurface->connection = pState->pConnection;
 	pSurface->window = pState->window;
@@ -83,7 +101,7 @@ b8 lzy_platform_create(LzyPlatform *pPlatform, const char *pWindowTitle, u16 uRe
 		pState->pScreen->root,
 		500, 500,
 		uResX, uResY,
-		0,
+		200,
 		XCB_WINDOW_CLASS_INPUT_OUTPUT,
 		pState->pScreen->root_visual,
 		uEventMask,

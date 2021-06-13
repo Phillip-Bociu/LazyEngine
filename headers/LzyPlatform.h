@@ -5,6 +5,7 @@
 #include <xcb/xcb.h>
 #include <vulkan/vulkan_xcb.h>
 typedef VkXcbSurfaceCreateInfoKHR LzyWindowSurfaceCreateInfo;
+#define LZY_SURFACE_EXT_NAME "VK_KHR_xcb_surface"
 #elif _WIN32
 #include <Windows.h>
 #include <vulkan/vulkan_win32.h>
@@ -19,6 +20,7 @@ b8 lzy_platform_create(LzyPlatform* pPlatform, const char* pWindowTitle,u16 uRes
 b8 lzy_platform_poll_events(LzyPlatform platform);
 void lzy_platform_get_surface_create_info(LzyPlatform platform, LzyWindowSurfaceCreateInfo* pSurface);
 VkResult lzy_platform_create_surface(VkInstance instance, const LzyWindowSurfaceCreateInfo* pCreateInfo, const VkAllocationCallbacks* pAllocs, VkSurfaceKHR* pSurface);
+void lzy_platform_get_framebuffer_size(LzyPlatform platform, u16* pX, u16* pY);
 void lzy_platform_shutdown(LzyPlatform platform);
 void* lzy_platform_alloc(u64 uSize, u8 uAlignment);
 void lzy_platform_free(void* ptr, u8 uAlignment);

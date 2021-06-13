@@ -63,7 +63,7 @@
 #define max(a, b) (((a) > (b)) ? (a) : (b))
 #endif
 
-#ifndef countof(arr)
+#ifndef countof
 #define countof(arr) (sizeof(arr) / sizeof(*arr))
 #endif
 
@@ -77,8 +77,8 @@
 #define true 1
 #define false 0
 
-typedef char b8;
-typedef int b32;
+typedef unsigned char b8;
+typedef unsigned int b32;
 
 typedef char i8;
 typedef short i16;

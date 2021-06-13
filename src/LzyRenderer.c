@@ -1,9 +1,25 @@
 
 #include "LzyLog.h"
 #include "LzyRenderer.h"
+#include "LzyApplication.h"
 #include "LzyMemory.h"
 #include <vulkan/vulkan.h>
 #include <string.h>
+
+typedef struct LzyQueueFamilyIndices
+{
+	u8 uGraphicsIndex;
+	u8 uPresentIndex;
+} LzyQueueFamilyIndices;
+
+typedef struct LzySwapchainSupportDetails
+{
+	VkSurfaceFormatKHR *pFormats;
+	VkPresentModeKHR *pPresentModes;
+	u32 uFormatCount;
+	u32 uPresentModeCount;
+	VkSurfaceCapabilitiesKHR surfaceCapabilities;
+} LzySwapchainSupportDetails;
 
 typedef struct LzyRendererState
 {
@@ -18,11 +34,29 @@ typedef struct LzyRendererState
 global b8 bIsInitialized = false;
 global LzyRendererState rendererState;
 
-typedef struct LzyQueueFamilyIndices
+
+internal_func LzySwapchainSupportDetails lzy_get_swapchain_support_details(VkPhysicalDevice physicalDevice)
 {
-	u8 uGraphicsIndex;
-	u8 uPresentIndex;
-}LzyQueueFamilyIndices;
+	LzySwapchainSupportDetails retval = {0};
+
+	vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, rendererState.surface, &retval.uFormatCount, NULL);
+	if (retval.uFormatCount != 0)
+	{
+		retval.pFormats = lzy_alloc(sizeof(VkSurfaceFormatKHR) * retval.uFormatCount, 8, LZY_MEMORY_TAG_RENDERER_INIT);
+		vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, rendererState.surface, &retval.uFormatCount, retval.pFormats);
+	}
+
+	vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, rendererState.surface, &retval.uPresentModeCount, NULL);
+	if (retval.uPresentModeCount != 0)
+	{
+		retval.pPresentModes = lzy_alloc(sizeof(VkPresentModeKHR) * retval.uPresentModeCount, 8, LZY_MEMORY_TAG_RENDERER_INIT);
+		vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, rendererState.surface, &retval.uPresentModeCount, retval.pPresentModes);
+	}
+
+	vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice, rendererState.surface, &retval.surfaceCapabilities);
+
+	return retval;
+}
 
 internal_func b8 lzy_qfam_is_complete(LzyQueueFamilyIndices qFams)
 {
@@ -32,9 +66,33 @@ internal_func b8 lzy_qfam_is_complete(LzyQueueFamilyIndices qFams)
 		return true;
 }
 
+internal_func b8 lzy_check_device_extension_support(VkPhysicalDevice physicalDevice, const char **ppExtensionNames, u16 uNameCount)
+{
+	u32 uExtensionCount;
+	vkEnumerateDeviceExtensionProperties(physicalDevice, NULL, &uExtensionCount, NULL);
+	VkExtensionProperties *pExtensions = lzy_alloc(sizeof(VkExtensionProperties) * uExtensionCount, 8, LZY_MEMORY_TAG_RENDERER_INIT);
+	vkEnumerateDeviceExtensionProperties(physicalDevice, NULL, &uExtensionCount, pExtensions);
+
+	for (u16 j = 0; j < uNameCount; j++)
+	{
+		b8 bFoundExtension = false;
+		for (u32 i = 0; i < uExtensionCount; i++)
+		{
+			if (strcmp(pExtensions[i].extensionName, ppExtensionNames[j]) == 0)
+			{
+				bFoundExtension = true;
+				break;
+			}
+		}
+		if (!bFoundExtension)
+			return false;
+	}
+
+	return true;
+}
 
 //TODO improve this
-internal_func b8 is_device_suitable(VkPhysicalDevice physicalDevice)
+internal_func b8 lzy_is_device_suitable(VkPhysicalDevice physicalDevice, const char **ppExtensionNames, u16 uNameCount, LzySwapchainSupportDetails* pDetails)
 {
 
 	VkPhysicalDeviceProperties props;
@@ -42,15 +100,21 @@ internal_func b8 is_device_suitable(VkPhysicalDevice physicalDevice)
 	vkGetPhysicalDeviceProperties(physicalDevice, &props);
 	if (props.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU || props.deviceType == VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU)
 	{
-		//vkGetPhysicalDeviceFeatures(physicalDevice, &feats);
-		return true;
+		if (lzy_check_device_extension_support(physicalDevice, ppExtensionNames, uNameCount))
+		{
+			LzySwapchainSupportDetails details = lzy_get_swapchain_support_details(physicalDevice);
+			if(details.uFormatCount != 0 && details.uPresentModeCount != 0)
+			{
+				*pDetails = details;
+				return true;
+			}
+		}
 	}
 
 	return false;
-
 }
 
-internal_func b8 check_vulkan_version()
+internal_func b8 lzy_check_vulkan_version()
 {
 	u32 uSupportedInstanceVersion = 0;
 	vkEnumerateInstanceVersion(&uSupportedInstanceVersion);
@@ -70,55 +134,55 @@ internal_func b8 check_vulkan_version()
 	return true;
 }
 
-internal_func VkInstance create_instance()
+internal_func VkInstance lzy_create_instance()
 {
 	u32 uSupportedInstanceVersion;
 	vkEnumerateInstanceVersion(&uSupportedInstanceVersion);
 
-	VkApplicationInfo appInfo = { 0 };
+	VkApplicationInfo appInfo = {0};
 
 	appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
 	appInfo.apiVersion = max(uSupportedInstanceVersion, VK_API_VERSION_1_2);
 
 	u32 uFoundLayers = 0;
-#ifndef _DEBUG
-	const char** ppValidationLayers = { 0 };
-#else
-	const char* ppValidationLayers[] = { "VK_LAYER_KHRONOS_validation" };
-	u32 uLayerCount = 0;
+	#ifndef _DEBUG
+		const char **ppValidationLayers = {0};
+	#else
+		const char *ppValidationLayers[] = {"VK_LAYER_KHRONOS_validation"};
+		u32 uLayerCount = 0;
 
-	vkEnumerateInstanceLayerProperties(&uLayerCount, NULL);
-	VkLayerProperties* pLayerProperties = lzy_alloc(uLayerCount * sizeof(VkLayerProperties), 8, LZY_MEMORY_TAG_RENDERER_INIT);
-	vkEnumerateInstanceLayerProperties(&uLayerCount, pLayerProperties);
+		vkEnumerateInstanceLayerProperties(&uLayerCount, NULL);
+		VkLayerProperties *pLayerProperties = lzy_alloc(uLayerCount * sizeof(VkLayerProperties), 8, LZY_MEMORY_TAG_RENDERER_INIT);
+		vkEnumerateInstanceLayerProperties(&uLayerCount, pLayerProperties);
 
-	for (u32 i = 0; i < uLayerCount && uFoundLayers < sizeof(ppValidationLayers) / sizeof(const char*); i++)
-	{
-		for (u32 j = 0; j < sizeof(ppValidationLayers) / sizeof(const char*); j++)
-			if (strcmp(pLayerProperties[i].layerName, ppValidationLayers[j]) == 0)
-			{
-				uFoundLayers++;
-				break;
-			}
-	}
+		for (u32 i = 0; i < uLayerCount && uFoundLayers < sizeof(ppValidationLayers) / sizeof(const char *); i++)
+		{
+			for (u32 j = 0; j < sizeof(ppValidationLayers) / sizeof(const char *); j++)
+				if (strcmp(pLayerProperties[i].layerName, ppValidationLayers[j]) == 0)
+				{
+					uFoundLayers++;
+					break;
+				}
+		}
 
-	if (uFoundLayers != sizeof(ppValidationLayers) / sizeof(const char*))
-	{
-		LCOREFATAL("Not all required validation layers supported");
-		return false;
-	}
-#endif
+		if (uFoundLayers != sizeof(ppValidationLayers) / sizeof(const char *))
+		{
+			LCOREFATAL("Not all required validation layers supported");
+			return false;
+		}
+	#endif
 	u32 uFoundExtensions = 0;
 	u32 uExtensionCount = 0;
 
-	const char* ppExtensionNames[] = { LZY_SURFACE_EXT_NAME, "VK_KHR_surface" };
+	const char *ppExtensionNames[] = {LZY_SURFACE_EXT_NAME, "VK_KHR_surface"};
 
 	vkEnumerateInstanceExtensionProperties(NULL, &uExtensionCount, NULL);
-	VkExtensionProperties* pExtensions = lzy_alloc(sizeof(VkExtensionProperties) * uExtensionCount, 4, LZY_MEMORY_TAG_RENDERER_INIT);
+	VkExtensionProperties *pExtensions = lzy_alloc(sizeof(VkExtensionProperties) * uExtensionCount, 4, LZY_MEMORY_TAG_RENDERER_INIT);
 	vkEnumerateInstanceExtensionProperties(NULL, &uExtensionCount, pExtensions);
 
-	for (u32 i = 0; i < uExtensionCount && uFoundExtensions < sizeof(ppExtensionNames) / sizeof(const char*); i++)
+	for (u32 i = 0; i < uExtensionCount && uFoundExtensions < sizeof(ppExtensionNames) / sizeof(const char *); i++)
 	{
-		for (u32 j = 0; j < sizeof(ppExtensionNames) / sizeof(const char*); j++)
+		for (u32 j = 0; j < sizeof(ppExtensionNames) / sizeof(const char *); j++)
 			if (strcmp(pExtensions[i].extensionName, ppExtensionNames[j]) == 0)
 			{
 				uFoundExtensions++;
@@ -126,14 +190,13 @@ internal_func VkInstance create_instance()
 			}
 	}
 
-	if (uFoundExtensions != sizeof(ppExtensionNames) / sizeof(const char*))
+	if (uFoundExtensions != sizeof(ppExtensionNames) / sizeof(const char *))
 	{
 		LCOREFATAL("Not all required vulkan extensions supported");
 		return false;
 	}
 
-
-	VkInstanceCreateInfo instanceCreateInfo = { 0 };
+	VkInstanceCreateInfo instanceCreateInfo = {0};
 
 	instanceCreateInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
 	instanceCreateInfo.pApplicationInfo = &appInfo;
@@ -150,7 +213,7 @@ internal_func VkInstance create_instance()
 	return true;
 }
 
-internal_func b8 pick_physical_device()
+internal_func b8 lzy_pick_physical_device(const char **ppExtensionNames, u16 uNameCount,  LzySwapchainSupportDetails* pDetails)
 {
 	u32 uPhysicalDeviceCount = 0;
 	if (vkEnumeratePhysicalDevices(rendererState.instance, &uPhysicalDeviceCount, NULL) != VK_SUCCESS)
@@ -163,12 +226,12 @@ internal_func b8 pick_physical_device()
 		LCOREFATAL("No GPUs found that support vulkan");
 		return false;
 	}
-	VkPhysicalDevice* pPhysicalDevices = lzy_alloc(uPhysicalDeviceCount * sizeof(VkPhysicalDevice), sizeof(VkPhysicalDevice), LZY_MEMORY_TAG_RENDERER_INIT);
+	VkPhysicalDevice *pPhysicalDevices = lzy_alloc(uPhysicalDeviceCount * sizeof(VkPhysicalDevice), sizeof(VkPhysicalDevice), LZY_MEMORY_TAG_RENDERER_INIT);
 	vkEnumeratePhysicalDevices(rendererState.instance, &uPhysicalDeviceCount, pPhysicalDevices);
 
 	for (u32 i = 0; i < uPhysicalDeviceCount; i++)
 	{
-		if (is_device_suitable(pPhysicalDevices[i]))
+		if (lzy_is_device_suitable(pPhysicalDevices[i], ppExtensionNames, uNameCount, pDetails))
 		{
 			rendererState.physicalDevice = pPhysicalDevices[i];
 			break;
@@ -184,13 +247,13 @@ internal_func b8 pick_physical_device()
 	return true;
 }
 
-internal_func b8 create_surface(LzyPlatform platform)
+internal_func b8 lzy_create_surface()
 {
 
-	LzyWindowSurfaceCreateInfo surfaceCreateInfo = { 0 };
+	LzyWindowSurfaceCreateInfo surfaceCreateInfo = {0};
 
-	lzy_platform_get_surface_create_info(platform, &surfaceCreateInfo);
-	if (lzy_platform_create_surface(rendererState.instance, &surfaceCreateInfo, NULL, &rendererState.surface) != VK_SUCCESS)
+	lzy_application_get_surface_create_info(&surfaceCreateInfo);
+	if (lzy_application_create_surface(rendererState.instance, &surfaceCreateInfo, NULL, &rendererState.surface) != VK_SUCCESS)
 	{
 		LCOREFATAL("Could not create window surface");
 		return false;
@@ -199,14 +262,14 @@ internal_func b8 create_surface(LzyPlatform platform)
 	return true;
 }
 
-internal_func b8 find_queue_families(LzyQueueFamilyIndices* pQfams)
+internal_func b8 lzy_find_queue_families(LzyQueueFamilyIndices *pQfams)
 {
 	LzyQueueFamilyIndices qFams;
 	qFams.uGraphicsIndex = -1;
 	qFams.uPresentIndex = -1;
 	u32 uQueueFamilyCount = 0;
 	vkGetPhysicalDeviceQueueFamilyProperties(rendererState.physicalDevice, &uQueueFamilyCount, NULL);
-	VkQueueFamilyProperties* pQueueFamilies = lzy_alloc(uQueueFamilyCount * sizeof(VkQueueFamilyProperties), 4, LZY_MEMORY_TAG_RENDERER_INIT);
+	VkQueueFamilyProperties *pQueueFamilies = lzy_alloc(uQueueFamilyCount * sizeof(VkQueueFamilyProperties), 4, LZY_MEMORY_TAG_RENDERER_INIT);
 	vkGetPhysicalDeviceQueueFamilyProperties(rendererState.physicalDevice, &uQueueFamilyCount, pQueueFamilies);
 
 	b32 bSurfaceSupport;
@@ -237,10 +300,9 @@ internal_func b8 find_queue_families(LzyQueueFamilyIndices* pQfams)
 	return true;
 }
 
-
-internal_func b8 create_device(LzyQueueFamilyIndices qFams, VkDevice* pDevice)
+internal_func b8 lzy_create_device(LzyQueueFamilyIndices qFams, const char **ppExtensionNames, u16 uNameCount, VkDevice *pDevice)
 {
-	u32 qFamilyIndices[] = { qFams.uGraphicsIndex, qFams.uPresentIndex };
+	u32 qFamilyIndices[] = {qFams.uGraphicsIndex, qFams.uPresentIndex};
 	u32 pSeenIndices[countof(qFamilyIndices)] = {0};
 	VkDeviceQueueCreateInfo deviceQueueCreateInfos[countof(qFamilyIndices)] = {0};
 	u32 uUniqueIndicesCount = 0;
@@ -268,12 +330,14 @@ internal_func b8 create_device(LzyQueueFamilyIndices qFams, VkDevice* pDevice)
 		}
 	}
 
-	VkPhysicalDeviceFeatures physicalDeviceFeatures = { 0 };
-	VkDeviceCreateInfo deviceCreateInfo = { 0 };
+	VkPhysicalDeviceFeatures physicalDeviceFeatures = {0};
+	VkDeviceCreateInfo deviceCreateInfo = {0};
 
 	deviceCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
 	deviceCreateInfo.queueCreateInfoCount = uUniqueIndicesCount;
 	deviceCreateInfo.pQueueCreateInfos = deviceQueueCreateInfos;
+	deviceCreateInfo.enabledExtensionCount = uNameCount;
+	deviceCreateInfo.ppEnabledExtensionNames = ppExtensionNames;
 	deviceCreateInfo.pEnabledFeatures = &physicalDeviceFeatures;
 
 	if (vkCreateDevice(rendererState.physicalDevice, &deviceCreateInfo, NULL, &rendererState.device) != VK_SUCCESS)
@@ -284,36 +348,76 @@ internal_func b8 create_device(LzyQueueFamilyIndices qFams, VkDevice* pDevice)
 	return true;
 }
 
-b8 lzy_renderer_init(LzyPlatform platform)
+b8 lzy_renderer_init()
 {
 	LCOREASSERT(!bIsInitialized, "Renderer Subsystem already initialized");
 
-	if (!check_vulkan_version())
+	const char *ppExtensionNames[] = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
+
+	if (!lzy_check_vulkan_version())
 		return false;
 
-	if (!create_instance())
+	if (!lzy_create_instance())
 		return false;
 
-	if (!pick_physical_device())
+	if (!lzy_create_surface())
 		return false;
 
-	if (!create_surface(platform))
+	LzySwapchainSupportDetails details;
+
+	if (!lzy_pick_physical_device(ppExtensionNames, countof(ppExtensionNames), &details))
 		return false;
+
 
 	LzyQueueFamilyIndices qFams;
 
-	if (!find_queue_families(&qFams))
+	if (!lzy_find_queue_families(&qFams))
 		return false;
 
-	if (!create_device(qFams, &rendererState.device))
+	if (!lzy_create_device(qFams, ppExtensionNames, countof(ppExtensionNames), &rendererState.device))
 		return false;
-	
+
 	vkGetDeviceQueue(rendererState.device, qFams.uGraphicsIndex, 0, &rendererState.graphicsQueue);
 	vkGetDeviceQueue(rendererState.device, qFams.uPresentIndex, 0, &rendererState.presentQueue);
 
+	VkSurfaceFormatKHR chosenFormat = details.pFormats[0];
 
+	for(u32 i = 0; i != details.uFormatCount; i++)
+	{
+		if(details.pFormats[i].format == VK_FORMAT_B8G8R8_SRGB &&
+		   details.pFormats[i].colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
+		   {
+			   chosenFormat = details.pFormats[i];
+			   break;
+		   }
+	}
 
+	VkPresentModeKHR chosenPresentMode = VK_PRESENT_MODE_FIFO_KHR;
 
+	for(u32 i = 0; i != details.uPresentModeCount; i++)
+	{
+		if(details.pPresentModes[i] == VK_PRESENT_MODE_MAILBOX_KHR)
+		   {
+			   chosenPresentMode = VK_PRESENT_MODE_MAILBOX_KHR;
+			   break;
+		   }
+	}
+
+	VkExtent2D chosenExtent;
+
+	if(details.surfaceCapabilities.currentExtent.width != -1)
+	{
+		chosenExtent = details.surfaceCapabilities.currentExtent;
+	} else
+	{
+		u16 uWidth, uHeight;
+		lzy_application_get_framebuffer_size(&uWidth, &uHeight);
+
+		chosenExtent.width = max(details.surfaceCapabilities.minImageExtent.width, min(details.surfaceCapabilities.maxImageExtent.width, uWidth));
+		chosenExtent.height = max(details.surfaceCapabilities.minImageExtent.height, min(details.surfaceCapabilities.maxImageExtent.height, uHeight));
+	}
+
+	
 
 	bIsInitialized = true;
 	LCOREINFO("Renderer subsystem initialized");
