@@ -29,6 +29,11 @@ typedef struct LzyRendererState
 	VkQueue graphicsQueue;
 	VkQueue presentQueue;
 	VkSurfaceKHR surface;
+	VkExtent2D swapchainExtent;
+	VkFormat swapchainImageFormat;
+	VkSwapchainKHR swapchain;
+	u32 uSwapchainImageCount;
+	VkImage* pSwapchainImages;
 } LzyRendererState;
 
 global b8 bIsInitialized = false;
@@ -417,7 +422,60 @@ b8 lzy_renderer_init()
 		chosenExtent.height = max(details.surfaceCapabilities.minImageExtent.height, min(details.surfaceCapabilities.maxImageExtent.height, uHeight));
 	}
 
-	
+	rendererState.swapchainImageFormat = chosenFormat.format;
+	rendererState.swapchainExtent = chosenExtent;
+
+	u32 uImageCount = details.surfaceCapabilities.minImageCount + 1;
+	if (uImageCount - details.surfaceCapabilities.maxImageCount < uImageCount)
+		uImageCount = details.surfaceCapabilities.maxImageCount;
+
+
+	VkSwapchainCreateInfoKHR swapchainCreateInfo = { 0 };
+
+	swapchainCreateInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
+	swapchainCreateInfo.surface = rendererState.surface;
+	swapchainCreateInfo.minImageCount = uImageCount;
+	swapchainCreateInfo.imageFormat = chosenFormat.format;
+	swapchainCreateInfo.imageColorSpace = chosenFormat.colorSpace;
+	swapchainCreateInfo.imageExtent = chosenExtent;
+	swapchainCreateInfo.imageArrayLayers = 1;
+	swapchainCreateInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+
+	u32 pQueueFamilyIndices[] = { qFams.uGraphicsIndex, qFams.uPresentIndex };
+
+	if (qFams.uGraphicsIndex != qFams.uPresentIndex)
+	{
+		swapchainCreateInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
+		swapchainCreateInfo.queueFamilyIndexCount = 2;
+		swapchainCreateInfo.pQueueFamilyIndices = pQueueFamilyIndices;
+	}
+	else
+	{
+		swapchainCreateInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
+		swapchainCreateInfo.queueFamilyIndexCount = 0;
+		swapchainCreateInfo.pQueueFamilyIndices = NULL;
+	}
+
+	swapchainCreateInfo.preTransform = details.surfaceCapabilities.currentTransform;
+	swapchainCreateInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+	swapchainCreateInfo.presentMode = chosenPresentMode;
+	swapchainCreateInfo.oldSwapchain = VK_NULL_HANDLE;
+
+	if (vkCreateSwapchainKHR(rendererState.device, &swapchainCreateInfo, NULL, &rendererState.swapchain) != VK_SUCCESS)
+	{
+		LCOREFATAL("Could not create swapchain");
+		return false;
+	}
+
+
+	vkGetSwapchainImagesKHR(rendererState.device, rendererState.swapchain, &rendererState.uSwapchainImageCount, NULL);
+	rendererState.pSwapchainImages = lzy_alloc(sizeof(VkImage) * rendererState.uSwapchainImageCount, 8, LZY_MEMORY_TAG_RENDERER_STATE);
+	vkGetSwapchainImagesKHR(rendererState.device, rendererState.swapchain, &rendererState.uSwapchainImageCount, rendererState.pSwapchainImages);
+
+
+
+
+
 
 	bIsInitialized = true;
 	LCOREINFO("Renderer subsystem initialized");

@@ -123,6 +123,17 @@ void lzy_platform_shutdown(LzyPlatform platform)
 
 }
 
+void lzy_platform_get_framebuffer_size(LzyPlatform platform, u16* pX, u16* pY)
+{
+	LzyPlatform_impl* pState = platform;
+	RECT rect;
+	GetWindowRect(pState->hWindow, &rect);
+	if (pX)
+		*pX = rect.right - rect.left;
+	if (pY)
+		*pY = rect.top - rect.bottom;
+}
+
 void* lzy_platform_alloc(u64 uSize, u8 uAlignment)
 {
 	return malloc(uSize);
