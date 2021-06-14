@@ -128,6 +128,8 @@ b8 lzy_application_run()
                 LCOREFATAL("%s","Game Render failed!");
                 break;
             }
+
+            lzy_renderer_loop();
         }
 
         uFrameCounter++;

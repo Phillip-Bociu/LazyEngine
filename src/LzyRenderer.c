@@ -5,6 +5,7 @@
 #include "LzyMemory.h"
 #include <vulkan/vulkan.h>
 #include <string.h>
+#include <stdio.h>
 
 typedef struct LzyQueueFamilyIndices
 {
@@ -33,12 +34,42 @@ typedef struct LzyRendererState
 	VkFormat swapchainImageFormat;
 	VkSwapchainKHR swapchain;
 	u32 uSwapchainImageCount;
-	VkImage* pSwapchainImages;
+	VkImage *pSwapchainImages;
+	VkCommandPool commandPool;
+	VkCommandBuffer commandBuffer;
+	VkSemaphore acquireSemaphore;
+	VkSemaphore releaseSemaphore;
 } LzyRendererState;
 
 global b8 bIsInitialized = false;
 global LzyRendererState rendererState;
 
+internal_func b8 lzy_create_command_pool(VkCommandPool *pCommandPool, u32 uFamilyIndex)
+{
+
+	VkCommandPoolCreateInfo createInfo = {VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO};
+	createInfo.queueFamilyIndex = uFamilyIndex;
+	createInfo.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
+
+	if (vkCreateCommandPool(rendererState.device, &createInfo, NULL, pCommandPool) != VK_SUCCESS)
+	{
+		LCOREFATAL("Could not create Command Pool");
+		return false;
+	}
+	return true;
+}
+
+internal_func b8 lzy_create_semaphore(VkSemaphore *pSemaphore)
+{
+	VkSemaphoreCreateInfo createInfo = {VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
+
+	if (vkCreateSemaphore(rendererState.device, &createInfo, NULL, pSemaphore) != VK_SUCCESS)
+	{
+		LCOREFATAL("Could not create Semaphore");
+		return false;
+	}
+	return true;
+}
 
 internal_func LzySwapchainSupportDetails lzy_get_swapchain_support_details(VkPhysicalDevice physicalDevice)
 {
@@ -97,7 +128,7 @@ internal_func b8 lzy_check_device_extension_support(VkPhysicalDevice physicalDev
 }
 
 //TODO improve this
-internal_func b8 lzy_is_device_suitable(VkPhysicalDevice physicalDevice, const char **ppExtensionNames, u16 uNameCount, LzySwapchainSupportDetails* pDetails)
+internal_func b8 lzy_is_device_suitable(VkPhysicalDevice physicalDevice, const char **ppExtensionNames, u16 uNameCount, LzySwapchainSupportDetails *pDetails)
 {
 
 	VkPhysicalDeviceProperties props;
@@ -108,7 +139,7 @@ internal_func b8 lzy_is_device_suitable(VkPhysicalDevice physicalDevice, const c
 		if (lzy_check_device_extension_support(physicalDevice, ppExtensionNames, uNameCount))
 		{
 			LzySwapchainSupportDetails details = lzy_get_swapchain_support_details(physicalDevice);
-			if(details.uFormatCount != 0 && details.uPresentModeCount != 0)
+			if (details.uFormatCount != 0 && details.uPresentModeCount != 0)
 			{
 				*pDetails = details;
 				return true;
@@ -147,35 +178,36 @@ internal_func VkInstance lzy_create_instance()
 	VkApplicationInfo appInfo = {0};
 
 	appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-	appInfo.apiVersion = max(uSupportedInstanceVersion, VK_API_VERSION_1_2);
+	//appInfo.apiVersion = max(uSupportedInstanceVersion, VK_API_VERSION_1_2);
+	appInfo.apiVersion = VK_API_VERSION_1_1;
 
 	u32 uFoundLayers = 0;
-	#ifndef _DEBUG
-		const char **ppValidationLayers = {0};
-	#else
-		const char *ppValidationLayers[] = {"VK_LAYER_KHRONOS_validation"};
-		u32 uLayerCount = 0;
+#ifndef _DEBUG
+	const char **ppValidationLayers = {0};
+#else
+	const char *ppValidationLayers[] = {"VK_LAYER_KHRONOS_validation"};
+	u32 uLayerCount = 0;
 
-		vkEnumerateInstanceLayerProperties(&uLayerCount, NULL);
-		VkLayerProperties *pLayerProperties = lzy_alloc(uLayerCount * sizeof(VkLayerProperties), 8, LZY_MEMORY_TAG_RENDERER_INIT);
-		vkEnumerateInstanceLayerProperties(&uLayerCount, pLayerProperties);
+	vkEnumerateInstanceLayerProperties(&uLayerCount, NULL);
+	VkLayerProperties *pLayerProperties = lzy_alloc(uLayerCount * sizeof(VkLayerProperties), 8, LZY_MEMORY_TAG_RENDERER_INIT);
+	vkEnumerateInstanceLayerProperties(&uLayerCount, pLayerProperties);
 
-		for (u32 i = 0; i < uLayerCount && uFoundLayers < sizeof(ppValidationLayers) / sizeof(const char *); i++)
-		{
-			for (u32 j = 0; j < sizeof(ppValidationLayers) / sizeof(const char *); j++)
-				if (strcmp(pLayerProperties[i].layerName, ppValidationLayers[j]) == 0)
-				{
-					uFoundLayers++;
-					break;
-				}
-		}
+	for (u32 i = 0; i < uLayerCount && uFoundLayers < sizeof(ppValidationLayers) / sizeof(const char *); i++)
+	{
+		for (u32 j = 0; j < sizeof(ppValidationLayers) / sizeof(const char *); j++)
+			if (strcmp(pLayerProperties[i].layerName, ppValidationLayers[j]) == 0)
+			{
+				uFoundLayers++;
+				break;
+			}
+	}
 
-		if (uFoundLayers != sizeof(ppValidationLayers) / sizeof(const char *))
-		{
-			LCOREFATAL("Not all required validation layers supported");
-			return false;
-		}
-	#endif
+	if (uFoundLayers != sizeof(ppValidationLayers) / sizeof(const char *))
+	{
+		LCOREFATAL("Not all required validation layers supported");
+		return false;
+	}
+#endif
 	u32 uFoundExtensions = 0;
 	u32 uExtensionCount = 0;
 
@@ -218,7 +250,7 @@ internal_func VkInstance lzy_create_instance()
 	return true;
 }
 
-internal_func b8 lzy_pick_physical_device(const char **ppExtensionNames, u16 uNameCount,  LzySwapchainSupportDetails* pDetails)
+internal_func b8 lzy_pick_physical_device(const char **ppExtensionNames, u16 uNameCount, LzySwapchainSupportDetails *pDetails)
 {
 	u32 uPhysicalDeviceCount = 0;
 	if (vkEnumeratePhysicalDevices(rendererState.instance, &uPhysicalDeviceCount, NULL) != VK_SUCCESS)
@@ -373,7 +405,6 @@ b8 lzy_renderer_init()
 	if (!lzy_pick_physical_device(ppExtensionNames, countof(ppExtensionNames), &details))
 		return false;
 
-
 	LzyQueueFamilyIndices qFams;
 
 	if (!lzy_find_queue_families(&qFams))
@@ -387,33 +418,34 @@ b8 lzy_renderer_init()
 
 	VkSurfaceFormatKHR chosenFormat = details.pFormats[0];
 
-	for(u32 i = 0; i != details.uFormatCount; i++)
+	for (u32 i = 0; i != details.uFormatCount; i++)
 	{
-		if(details.pFormats[i].format == VK_FORMAT_B8G8R8_SRGB &&
-		   details.pFormats[i].colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
-		   {
-			   chosenFormat = details.pFormats[i];
-			   break;
-		   }
+		if (details.pFormats[i].format == VK_FORMAT_B8G8R8_SRGB &&
+			details.pFormats[i].colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
+		{
+			chosenFormat = details.pFormats[i];
+			break;
+		}
 	}
 
 	VkPresentModeKHR chosenPresentMode = VK_PRESENT_MODE_FIFO_KHR;
 
-	for(u32 i = 0; i != details.uPresentModeCount; i++)
+	for (u32 i = 0; i != details.uPresentModeCount; i++)
 	{
-		if(details.pPresentModes[i] == VK_PRESENT_MODE_MAILBOX_KHR)
-		   {
-			   chosenPresentMode = VK_PRESENT_MODE_MAILBOX_KHR;
-			   break;
-		   }
+		if (details.pPresentModes[i] == VK_PRESENT_MODE_MAILBOX_KHR)
+		{
+			chosenPresentMode = VK_PRESENT_MODE_MAILBOX_KHR;
+			break;
+		}
 	}
 
 	VkExtent2D chosenExtent;
 
-	if(details.surfaceCapabilities.currentExtent.width != -1)
+	if (details.surfaceCapabilities.currentExtent.width != -1)
 	{
 		chosenExtent = details.surfaceCapabilities.currentExtent;
-	} else
+	}
+	else
 	{
 		u16 uWidth, uHeight;
 		lzy_application_get_framebuffer_size(&uWidth, &uHeight);
@@ -422,6 +454,7 @@ b8 lzy_renderer_init()
 		chosenExtent.height = max(details.surfaceCapabilities.minImageExtent.height, min(details.surfaceCapabilities.maxImageExtent.height, uHeight));
 	}
 
+	
 	rendererState.swapchainImageFormat = chosenFormat.format;
 	rendererState.swapchainExtent = chosenExtent;
 
@@ -429,55 +462,123 @@ b8 lzy_renderer_init()
 	if (uImageCount - details.surfaceCapabilities.maxImageCount < uImageCount)
 		uImageCount = details.surfaceCapabilities.maxImageCount;
 
+	VkSwapchainCreateInfoKHR createInfo = {VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR};
 
-	VkSwapchainCreateInfoKHR swapchainCreateInfo = { 0 };
+	createInfo.surface = rendererState.surface;
+	createInfo.minImageCount = uImageCount;
+	createInfo.imageFormat = chosenFormat.format;
+	createInfo.imageColorSpace = chosenFormat.colorSpace;
+	createInfo.imageExtent = chosenExtent;
+	createInfo.imageArrayLayers = 1;
+	createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 
-	swapchainCreateInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-	swapchainCreateInfo.surface = rendererState.surface;
-	swapchainCreateInfo.minImageCount = uImageCount;
-	swapchainCreateInfo.imageFormat = chosenFormat.format;
-	swapchainCreateInfo.imageColorSpace = chosenFormat.colorSpace;
-	swapchainCreateInfo.imageExtent = chosenExtent;
-	swapchainCreateInfo.imageArrayLayers = 1;
-	swapchainCreateInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-
-	u32 pQueueFamilyIndices[] = { qFams.uGraphicsIndex, qFams.uPresentIndex };
+	u32 pQueueFamilyIndices[] = {qFams.uGraphicsIndex, qFams.uPresentIndex};
 
 	if (qFams.uGraphicsIndex != qFams.uPresentIndex)
 	{
-		swapchainCreateInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
-		swapchainCreateInfo.queueFamilyIndexCount = 2;
-		swapchainCreateInfo.pQueueFamilyIndices = pQueueFamilyIndices;
+		createInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
+		createInfo.queueFamilyIndexCount = 2;
+		createInfo.pQueueFamilyIndices = pQueueFamilyIndices;
 	}
 	else
 	{
-		swapchainCreateInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
-		swapchainCreateInfo.queueFamilyIndexCount = 0;
-		swapchainCreateInfo.pQueueFamilyIndices = NULL;
+		createInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
+		createInfo.queueFamilyIndexCount = 0;
+		createInfo.pQueueFamilyIndices = NULL;
 	}
 
-	swapchainCreateInfo.preTransform = details.surfaceCapabilities.currentTransform;
-	swapchainCreateInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-	swapchainCreateInfo.presentMode = chosenPresentMode;
-	swapchainCreateInfo.oldSwapchain = VK_NULL_HANDLE;
+	createInfo.preTransform = details.surfaceCapabilities.currentTransform;
+	createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+	createInfo.presentMode = chosenPresentMode;
+	createInfo.oldSwapchain = VK_NULL_HANDLE;
 
-	if (vkCreateSwapchainKHR(rendererState.device, &swapchainCreateInfo, NULL, &rendererState.swapchain) != VK_SUCCESS)
+
+	if (vkCreateSwapchainKHR(rendererState.device, &createInfo, NULL, &rendererState.swapchain) != VK_SUCCESS)
 	{
 		LCOREFATAL("Could not create swapchain");
 		return false;
 	}
 
-
 	vkGetSwapchainImagesKHR(rendererState.device, rendererState.swapchain, &rendererState.uSwapchainImageCount, NULL);
 	rendererState.pSwapchainImages = lzy_alloc(sizeof(VkImage) * rendererState.uSwapchainImageCount, 8, LZY_MEMORY_TAG_RENDERER_STATE);
 	vkGetSwapchainImagesKHR(rendererState.device, rendererState.swapchain, &rendererState.uSwapchainImageCount, rendererState.pSwapchainImages);
 
+	if (!lzy_create_semaphore(&rendererState.acquireSemaphore) || !lzy_create_semaphore(&rendererState.releaseSemaphore))
+	{
+		return false;
+	}
 
+	if (!lzy_create_command_pool(&rendererState.commandPool, qFams.uGraphicsIndex))
+		return false;
 
+	VkCommandBufferAllocateInfo allocInfo = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO};
+	allocInfo.commandPool = rendererState.commandPool;
+	allocInfo.commandBufferCount = 1;
+	allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
 
-
+	if (vkAllocateCommandBuffers(rendererState.device, &allocInfo, &rendererState.commandBuffer) != VK_SUCCESS)
+	{
+		LCOREFATAL("Could not create command buffer");
+		return false;
+	}
 
 	bIsInitialized = true;
 	LCOREINFO("Renderer subsystem initialized");
+	return true;
+}
+
+b8 lzy_renderer_loop()
+{
+	u32 uImageIndex = 0;
+	
+	if(vkAcquireNextImageKHR(rendererState.device, rendererState.swapchain, (u64)-1, rendererState.acquireSemaphore, VK_NULL_HANDLE, &uImageIndex) != VK_SUCCESS)
+	{
+		LCOREFATAL("Could not acquire image index");
+		return false;
+	}
+
+
+	if(vkResetCommandPool(rendererState.device, rendererState.commandPool, 0) != VK_SUCCESS)
+	{
+		LCOREFATAL("Could not reset command pool");
+		return false;
+	}
+
+	VkClearColorValue color = {0,1,0,1};
+
+	VkCommandBufferBeginInfo beginInfo = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
+	beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+	VkImageSubresourceRange range = {0};
+
+	range.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	range.levelCount = 1;
+	range.layerCount = 1;
+
+	vkBeginCommandBuffer(rendererState.commandBuffer, &beginInfo);
+	vkCmdClearColorImage(rendererState.commandBuffer, rendererState.pSwapchainImages[uImageIndex], VK_IMAGE_LAYOUT_GENERAL, &color, 1, &range);
+	vkEndCommandBuffer(rendererState.commandBuffer);
+
+	VkPipelineStageFlags stageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+
+	VkSubmitInfo submitInfo = {VK_STRUCTURE_TYPE_SUBMIT_INFO};
+	submitInfo.waitSemaphoreCount = 1;
+	submitInfo.pWaitSemaphores = &rendererState.acquireSemaphore;
+	submitInfo.pWaitDstStageMask = &stageMask;
+	submitInfo.commandBufferCount = 1;
+	submitInfo.pCommandBuffers = &rendererState.commandBuffer;
+	submitInfo.signalSemaphoreCount = 1;
+	submitInfo.pSignalSemaphores = &rendererState.releaseSemaphore;
+
+	vkQueueSubmit(rendererState.graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
+
+	VkPresentInfoKHR presentInfo = {VK_STRUCTURE_TYPE_PRESENT_INFO_KHR};
+	presentInfo.waitSemaphoreCount = 1;
+	presentInfo.pWaitSemaphores = &rendererState.releaseSemaphore;
+	presentInfo.swapchainCount = 1;
+	presentInfo.pSwapchains = &rendererState.swapchain;
+	presentInfo.pImageIndices = &uImageIndex;
+
+	vkQueuePresentKHR(rendererState.presentQueue, &presentInfo);
+	vkDeviceWaitIdle(rendererState.device);
 	return true;
 }

@@ -4,3 +4,4 @@
 
 b8 lzy_renderer_init();
 void lzy_renderer_shutdown();
+b8 lzy_renderer_loop();
