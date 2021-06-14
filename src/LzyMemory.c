@@ -69,6 +69,18 @@ void* lzy_memcpy(void* pDst, void* pSrc, u64 uSize)
 }
 
 
+internal_func void lzy_get_resulting_bytes(f64* pBytes, u32* pOrder)
+{
+    *pOrder = 0;
+
+    while (*pBytes > 1024.0)
+    {
+        *pBytes /= 1024.0;
+        (*pOrder)++;
+    }
+
+}
+
 //TODO
 char* lzy_get_memstats()
 {
@@ -78,16 +90,16 @@ char* lzy_get_memstats()
 
 
     f64 fTotalAllocs = memStats.uTotalAllocs;
-    u32 uOrder = 0;
+    u32 uOrder;
 
-    while (fTotalAllocs > 1024.0)
-    {
-        fTotalAllocs /= 1024.0;
-        uOrder++;
-    }
+    lzy_get_resulting_bytes(&fTotalAllocs, &uOrder);
+    LCOREERROR("Total allocations: %f%s", fTotalAllocs, ppByteAfixes[uOrder]);
     
+    fTotalAllocs = memStats.uTaggedAllocs[LZY_MEMORY_TAG_RENDERER_INIT];
+    lzy_get_resulting_bytes(&fTotalAllocs, &uOrder);
 
-    LCORETRACE("Total allocations: %f%s", fTotalAllocs, ppByteAfixes[uOrder]);
+    LCOREERROR("Renderer Init allocations: %f%s", fTotalAllocs, ppByteAfixes[uOrder]);
+
     
     return NULL;
 }

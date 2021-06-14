@@ -39,6 +39,7 @@ typedef struct LzyRendererState
 	VkCommandBuffer commandBuffer;
 	VkSemaphore acquireSemaphore;
 	VkSemaphore releaseSemaphore;
+	VkRenderPass renderPass;
 } LzyRendererState;
 
 global b8 bIsInitialized = false;
@@ -178,8 +179,8 @@ internal_func VkInstance lzy_create_instance()
 	VkApplicationInfo appInfo = {0};
 
 	appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-	//appInfo.apiVersion = max(uSupportedInstanceVersion, VK_API_VERSION_1_2);
-	appInfo.apiVersion = VK_API_VERSION_1_1;
+	appInfo.apiVersion = max(uSupportedInstanceVersion, VK_API_VERSION_1_2);
+	//appInfo.apiVersion = VK_API_VERSION_1_1;
 
 	u32 uFoundLayers = 0;
 #ifndef _DEBUG
@@ -385,9 +386,177 @@ internal_func b8 lzy_create_device(LzyQueueFamilyIndices qFams, const char **ppE
 	return true;
 }
 
+
+internal_func b8 lzy_create_swapchain(VkSwapchainKHR* pSwapchain, LzyQueueFamilyIndices qFams, LzySwapchainSupportDetails* pDetails)
+{
+	VkSurfaceFormatKHR chosenFormat = pDetails->pFormats[0];
+
+	for (u32 i = 0; i != pDetails->uFormatCount; i++)
+	{
+		if (pDetails->pFormats[i].format == VK_FORMAT_B8G8R8_SRGB &&
+			pDetails->pFormats[i].colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
+		{
+			chosenFormat = pDetails->pFormats[i];
+			break;
+		}
+	}
+
+	VkPresentModeKHR chosenPresentMode = VK_PRESENT_MODE_FIFO_KHR;
+
+	for (u32 i = 0; i != pDetails->uPresentModeCount; i++)
+	{
+		if (pDetails->pPresentModes[i] == VK_PRESENT_MODE_MAILBOX_KHR)
+		{
+			chosenPresentMode = VK_PRESENT_MODE_MAILBOX_KHR;
+			break;
+		}
+	}
+
+	VkExtent2D chosenExtent;
+
+	if (pDetails->surfaceCapabilities.currentExtent.width != -1)
+	{
+		chosenExtent = pDetails->surfaceCapabilities.currentExtent;
+	}
+	else
+	{
+		u16 uWidth, uHeight;
+		lzy_application_get_framebuffer_size(&uWidth, &uHeight);
+
+		chosenExtent.width =  max(pDetails->surfaceCapabilities.minImageExtent.width , min(pDetails->surfaceCapabilities.maxImageExtent.width , uWidth));
+		chosenExtent.height = max(pDetails->surfaceCapabilities.minImageExtent.height, min(pDetails->surfaceCapabilities.maxImageExtent.height, uHeight));
+	}
+
+
+	rendererState.swapchainImageFormat = chosenFormat.format;
+	rendererState.swapchainExtent = chosenExtent;
+
+	u32 uImageCount = pDetails->surfaceCapabilities.minImageCount + 1;
+	if (uImageCount - pDetails->surfaceCapabilities.maxImageCount < uImageCount)
+		uImageCount = pDetails->surfaceCapabilities.maxImageCount;
+
+	VkSwapchainCreateInfoKHR createInfo = { VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR };
+
+	createInfo.surface = rendererState.surface;
+	createInfo.minImageCount = uImageCount;
+	createInfo.imageFormat = chosenFormat.format;
+	createInfo.imageColorSpace = chosenFormat.colorSpace;
+	createInfo.imageExtent = chosenExtent;
+	createInfo.imageArrayLayers = 1;
+	createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+
+	u32 pQueueFamilyIndices[] = { qFams.uGraphicsIndex, qFams.uPresentIndex };
+
+	if (qFams.uGraphicsIndex != qFams.uPresentIndex)
+	{
+		createInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
+		createInfo.queueFamilyIndexCount = 2;
+		createInfo.pQueueFamilyIndices = pQueueFamilyIndices;
+	}
+	else
+	{
+		createInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
+		createInfo.queueFamilyIndexCount = 0;
+		createInfo.pQueueFamilyIndices = NULL;
+	}
+
+	createInfo.preTransform = pDetails->surfaceCapabilities.currentTransform;
+	createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+	createInfo.presentMode = chosenPresentMode;
+	createInfo.oldSwapchain = VK_NULL_HANDLE;
+
+	if (vkCreateSwapchainKHR(rendererState.device, &createInfo, NULL, pSwapchain) != VK_SUCCESS)
+	{
+		LCOREFATAL("Could not create swapchain");
+		return false;
+	}
+	return true;
+}
+
+internal_func b8 lzy_create_render_pass(VkRenderPass* pRenderPass)
+{
+
+	VkAttachmentReference attachmentReference = {0};
+	
+	attachmentReference.attachment = 0;
+	attachmentReference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+ 	VkSubpassDescription subpassDescription = {0};
+	subpassDescription.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+	subpassDescription.colorAttachmentCount = 1;
+	subpassDescription.pColorAttachments = &attachmentReference;
+
+	VkAttachmentDescription attachments[1] = {0};
+
+	attachments[0].format = rendererState.swapchainImageFormat;
+	attachments[0].samples = VK_SAMPLE_COUNT_1_BIT;
+	attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+	attachments[0].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+	attachments[0].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+	attachments[0].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+	attachments[0].initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+	attachments[0].finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+	VkRenderPassCreateInfo createInfo = { VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO };
+
+	createInfo.attachmentCount = 1;
+	createInfo.pAttachments = attachments;
+	createInfo.subpassCount = 1;
+	createInfo.pSubpasses = &subpassDescription;
+
+	if (vkCreateRenderPass(rendererState.device, &createInfo, NULL, pRenderPass) != VK_SUCCESS)
+	{
+		LCOREFATAL("Could not create render pass");
+		return false;
+	}
+	return true;
+}
+
+internal_func b8 lzy_create_image_view(VkImageView* pImageView, VkImage image, VkFormat format)
+{
+	VkImageViewCreateInfo createInfo = { VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO };
+	createInfo.image = image;
+	createInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+	createInfo.format = format;
+	createInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	createInfo.subresourceRange.levelCount = 1;
+	createInfo.subresourceRange.layerCount = 1;
+
+	if (vkCreateImageView(rendererState.device, &createInfo, NULL, pImageView) != VK_SUCCESS)
+	{
+		LCOREFATAL("Could not create image view");
+		return false;
+	}
+
+	return true;
+}
+
+internal_func b8 lzy_create_framebuffer(VkFramebuffer* pFramebuffer, VkImageView imageView, u32 uWidth, u32 uHeight)
+{
+
+	VkFramebufferCreateInfo createInfo = { VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO };
+	createInfo.renderPass = rendererState.renderPass;
+	createInfo.attachmentCount = 1;
+	createInfo.pAttachments = &imageView;
+	createInfo.width = uWidth;
+	createInfo.height = uHeight;
+	createInfo.layers = 1;
+
+	if (vkCreateFramebuffer(rendererState.device, &createInfo, NULL, pFramebuffer) != VK_SUCCESS)
+	{
+		LCOREFATAL("Could not create framebuffer");
+		return false;
+	}
+	return true;
+}
+
+
 b8 lzy_renderer_init()
 {
 	LCOREASSERT(!bIsInitialized, "Renderer Subsystem already initialized");
+
+	u16 uWidth, uHeight;
+	lzy_application_get_framebuffer_size(&uWidth, &uHeight);
 
 	const char *ppExtensionNames[] = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
 
@@ -416,88 +585,9 @@ b8 lzy_renderer_init()
 	vkGetDeviceQueue(rendererState.device, qFams.uGraphicsIndex, 0, &rendererState.graphicsQueue);
 	vkGetDeviceQueue(rendererState.device, qFams.uPresentIndex, 0, &rendererState.presentQueue);
 
-	VkSurfaceFormatKHR chosenFormat = details.pFormats[0];
 
-	for (u32 i = 0; i != details.uFormatCount; i++)
-	{
-		if (details.pFormats[i].format == VK_FORMAT_B8G8R8_SRGB &&
-			details.pFormats[i].colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
-		{
-			chosenFormat = details.pFormats[i];
-			break;
-		}
-	}
-
-	VkPresentModeKHR chosenPresentMode = VK_PRESENT_MODE_FIFO_KHR;
-
-	for (u32 i = 0; i != details.uPresentModeCount; i++)
-	{
-		if (details.pPresentModes[i] == VK_PRESENT_MODE_MAILBOX_KHR)
-		{
-			chosenPresentMode = VK_PRESENT_MODE_MAILBOX_KHR;
-			break;
-		}
-	}
-
-	VkExtent2D chosenExtent;
-
-	if (details.surfaceCapabilities.currentExtent.width != -1)
-	{
-		chosenExtent = details.surfaceCapabilities.currentExtent;
-	}
-	else
-	{
-		u16 uWidth, uHeight;
-		lzy_application_get_framebuffer_size(&uWidth, &uHeight);
-
-		chosenExtent.width = max(details.surfaceCapabilities.minImageExtent.width, min(details.surfaceCapabilities.maxImageExtent.width, uWidth));
-		chosenExtent.height = max(details.surfaceCapabilities.minImageExtent.height, min(details.surfaceCapabilities.maxImageExtent.height, uHeight));
-	}
-
-	
-	rendererState.swapchainImageFormat = chosenFormat.format;
-	rendererState.swapchainExtent = chosenExtent;
-
-	u32 uImageCount = details.surfaceCapabilities.minImageCount + 1;
-	if (uImageCount - details.surfaceCapabilities.maxImageCount < uImageCount)
-		uImageCount = details.surfaceCapabilities.maxImageCount;
-
-	VkSwapchainCreateInfoKHR createInfo = {VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR};
-
-	createInfo.surface = rendererState.surface;
-	createInfo.minImageCount = uImageCount;
-	createInfo.imageFormat = chosenFormat.format;
-	createInfo.imageColorSpace = chosenFormat.colorSpace;
-	createInfo.imageExtent = chosenExtent;
-	createInfo.imageArrayLayers = 1;
-	createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
-
-	u32 pQueueFamilyIndices[] = {qFams.uGraphicsIndex, qFams.uPresentIndex};
-
-	if (qFams.uGraphicsIndex != qFams.uPresentIndex)
-	{
-		createInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
-		createInfo.queueFamilyIndexCount = 2;
-		createInfo.pQueueFamilyIndices = pQueueFamilyIndices;
-	}
-	else
-	{
-		createInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
-		createInfo.queueFamilyIndexCount = 0;
-		createInfo.pQueueFamilyIndices = NULL;
-	}
-
-	createInfo.preTransform = details.surfaceCapabilities.currentTransform;
-	createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-	createInfo.presentMode = chosenPresentMode;
-	createInfo.oldSwapchain = VK_NULL_HANDLE;
-
-
-	if (vkCreateSwapchainKHR(rendererState.device, &createInfo, NULL, &rendererState.swapchain) != VK_SUCCESS)
-	{
-		LCOREFATAL("Could not create swapchain");
+	if (!lzy_create_swapchain(&rendererState.swapchain, qFams, &details))
 		return false;
-	}
 
 	vkGetSwapchainImagesKHR(rendererState.device, rendererState.swapchain, &rendererState.uSwapchainImageCount, NULL);
 	rendererState.pSwapchainImages = lzy_alloc(sizeof(VkImage) * rendererState.uSwapchainImageCount, 8, LZY_MEMORY_TAG_RENDERER_STATE);
@@ -510,6 +600,20 @@ b8 lzy_renderer_init()
 
 	if (!lzy_create_command_pool(&rendererState.commandPool, qFams.uGraphicsIndex))
 		return false;
+
+	if (!lzy_create_render_pass(&rendererState.renderPass))
+		return false;
+
+	VkFramebuffer* pFramebuffers = lzy_alloc(sizeof(VkFramebuffer) * rendererState.uSwapchainImageCount, 8, LZY_MEMORY_TAG_RENDERER_STATE);
+	VkImageView* pImageViews = lzy_alloc(sizeof(VkImageView) * rendererState.uSwapchainImageCount, 8,LZY_MEMORY_TAG_RENDERER_STATE);
+	for (u32 i = 0; i < rendererState.uSwapchainImageCount; i++)
+	{
+		lzy_create_image_view(pImageViews + i, rendererState.pSwapchainImages[i], rendererState.swapchainImageFormat);
+		lzy_create_framebuffer(pFramebuffers + i, pImageViews + i, uWidth, uHeight);
+	}
+
+
+	VkAllocationCallbacks a;
 
 	VkCommandBufferAllocateInfo allocInfo = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO};
 	allocInfo.commandPool = rendererState.commandPool;
