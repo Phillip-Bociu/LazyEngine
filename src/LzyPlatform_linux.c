@@ -9,6 +9,7 @@
 #include <X11/Xlib-xcb.h>
 #include <sys/time.h>
 #include <unistd.h>
+#include <sys/mman.h>
 
 #include <string.h>
 #include <stdlib.h>
@@ -249,12 +250,12 @@ void lzy_platform_sleep(u64 uMs)
 
 void *lzy_platform_alloc(u64 uSize, u8 uAlignment)
 {
-	return malloc(uSize);
+	return mmap(NULL, uSize, PROT_WRITE | PROT_READ, MAP_PRIVATE | MAP_ANON, -1, 0);
 }
 
-void lzy_platform_free(void *ptr, u8 uAlignment)
+void lzy_platform_free(void* ptr, u64 uSize, u8 uAlignment)
 {
-	free(ptr);
+	munmap(ptr, uSize);
 }
 
 void *lzy_platform_memcpy(void *pDst, void *pSrc, u64 uSize)

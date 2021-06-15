@@ -53,8 +53,8 @@
 #endif
 
 
-#define MAKE_HANDLE(type) typedef struct type##_t* type
-
+#define MAKE_PLATFORM_INDEPENDENT_HANDLE(type) typedef struct type##_t* type
+#define MAKE_PLATFORM_INDEPENDENT_TYPE(type) typedef struct type type
 
 #ifndef min
 #define min(a,b) (((a) < (b)) ? (a) : (b))

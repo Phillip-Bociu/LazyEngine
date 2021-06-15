@@ -2,6 +2,12 @@
 #include "LzyDefines.h"
 #include "LzyLog.h"
 
+typedef struct LzyMemoryConfig
+{
+	u64 uTotalMemorySize;
+	u64 pTaggedMemorySize[LZY_MEMORY_TAG_MAX];
+}LzyMemoryConfig;
+
 //TODO: make custom allocator for pre-allocated memory
 typedef enum LzyMemoryTag
 {
@@ -18,7 +24,7 @@ typedef enum LzyMemoryTag
 }LzyMemoryTag;
 
 
-b8 lzy_memory_init();
+b8 lzy_memory_init(const LzyMemoryConfig* pMemoryConfig);
 void lzy_memory_shutdown();
 
 LAPI void* lzy_alloc(u64 uSize, u8 uAlignment, LzyMemoryTag memTag);
