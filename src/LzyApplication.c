@@ -61,7 +61,7 @@ b8 lzy_application_create(LzyGame *pGame)
 
     //Subsystem Initializations
 
-    if(!lzy_memory_init())
+    if(!lzy_memory_init(&pGame->appConfig.memoryConfig))
     {
         LCOREFATAL("Could not initialize memory subsystem!");
         return false;

@@ -3,20 +3,27 @@
 #include "LzyLog.h"
 #include <stdlib.h>
 
-struct LzyMemStats
+typedef struct LzyMemStats
 {
     u64 uTotalAllocs;
     u64 uTaggedAllocs[LZY_MEMORY_TAG_MAX];
-};
+}LzyMemStats;
 
-global struct LzyMemStats memStats;
+typedef struct LzyMemory
+{
+    u64 uMemorySize;
+    void* pMemory;
+}LzyMemory;
 
-b8 lzy_memory_init()
+global LzyMemStats memStats;
+
+b8 lzy_memory_init(const LzyMemoryConfig* pConfig)
 {
     LINFO("Memory Subsystem Initialized");
     lzy_platform_memzero(&memStats, sizeof(memStats));
+    lzy_platform_alloc(pConfig->uTotalMemorySize, 8);
+
     return true;
-    
 }
 
 void lzy_memory_shutdown()
