@@ -39,6 +39,13 @@ b8 lzy_application_create(LzyGame *pGame)
     LCOREFATAL("lol %f", 3.14f);
     LCOREASSERT(false, "Assertion Test");
 
+
+    if(!lzy_memory_init(&pGame->appConfig.memoryConfig))
+    {
+        LCOREFATAL("Could not initialize memory subsystem!");
+        return false;
+    }
+
     if (!lzy_platform_create(&lzyApp.platform,
                              pGame->appConfig.pApplicationName,
                              pGame->appConfig.uResX,
@@ -53,19 +60,10 @@ b8 lzy_application_create(LzyGame *pGame)
     lzyApp.bIsRunning = true;
     lzyApp.bIsSuspended = false;
 
-    if(!pGame->fpStart(pGame))
-    {
-        LCOREFATAL("%s","Could not start the game");
-        return false;
-    }
+   
 
     //Subsystem Initializations
 
-    if(!lzy_memory_init(&pGame->appConfig.memoryConfig))
-    {
-        LCOREFATAL("Could not initialize memory subsystem!");
-        return false;
-    }
     if(!lzy_event_init())
     {
         LCOREFATAL("Could not initialize event subsystem!");
@@ -78,6 +76,13 @@ b8 lzy_application_create(LzyGame *pGame)
         return false;
     }
 
+    //TODO Memory Stage 2
+
+    if (!pGame->fpStart(pGame))
+    {
+        LCOREFATAL("%s", "Could not start the game");
+        return false;
+    }
 
     bIsInitialized = true;
 

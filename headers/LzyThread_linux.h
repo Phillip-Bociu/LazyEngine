@@ -1,3 +1,4 @@
+#pragma once
 #ifdef __linux__
 #include <pthread.h>
 #include <semaphore.h>

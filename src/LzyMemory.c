@@ -3,6 +3,13 @@
 #include "LzyLog.h"
 #include <stdlib.h>
 
+typedef struct LzyLinearAllocator
+{
+    void* uCapacity;
+    void* pEnd;
+    u8 pData[];
+}LzyLinearAllocator;
+
 typedef struct LzyMemStats
 {
     u64 uTotalAllocs;
@@ -13,15 +20,42 @@ typedef struct LzyMemory
 {
     u64 uMemorySize;
     void* pMemory;
+    struct
+    {
+        void* pBegin;
+        void* pEnd;
+    }ppMemorySections[LZY_MEMORY_TAG_MAX];
+
 }LzyMemory;
 
 global LzyMemStats memStats;
+global LzyMemory memory;
 
 b8 lzy_memory_init(const LzyMemoryConfig* pConfig)
 {
     LINFO("Memory Subsystem Initialized");
     lzy_platform_memzero(&memStats, sizeof(memStats));
-    lzy_platform_alloc(pConfig->uTotalMemorySize, 8);
+    lzy_platform_memzero(&memory, sizeof(memory));
+
+    memory.uMemorySize = pConfig->uTotalMemorySize;
+    memory.pMemory = lzy_platform_alloc(pConfig->uTotalMemorySize, 8);
+
+    if (!memory.pMemory)
+    {
+        LCOREFATAL("Not enough memory");
+        return false;
+    }
+    memory.ppMemorySections[LZY_MEMORY_TAG_PLATFORM_STATE].pBegin = memory.pMemory;
+    memory.ppMemorySections[LZY_MEMORY_TAG_PLATFORM_STATE].pEnd = memory.pMemory;
+
+    memory.ppMemorySections[LZY_MEMORY_TAG_EVENT_SYSTEM_STATE].pBegin = memory.pMemory;
+    memory.ppMemorySections[LZY_MEMORY_TAG_EVENT_SYSTEM_STATE].pEnd   = (u8*)memory.pMemory + pConfig->pTaggedMemorySize[LZY_MEMORY_TAG_EVENT_SYSTEM_STATE];
+
+    memory.ppMemorySections[LZY_MEMORY_TAG_RENDERER_STATE].pBegin = (u8*)memory.pMemory + pConfig->pTaggedMemorySize[LZY_MEMORY_TAG_EVENT_SYSTEM_STATE];
+    memory.ppMemorySections[LZY_MEMORY_TAG_RENDERER_STATE].pEnd   = (u8*)memory.pMemory + pConfig->pTaggedMemorySize[LZY_MEMORY_TAG_EVENT_SYSTEM_STATE] + pConfig->pTaggedMemorySize[LZY_MEMORY_TAG_RENDERER_STATE];
+
+    memory.ppMemorySections[LZY_MEMORY_TAG_RENDERER_INIT].pBegin = (u8*)memory.pMemory + pConfig->pTaggedMemorySize[LZY_MEMORY_TAG_EVENT_SYSTEM_STATE] + pConfig->pTaggedMemorySize[LZY_MEMORY_TAG_RENDERER_STATE];
+    memory.ppMemorySections[LZY_MEMORY_TAG_RENDERER_INIT].pEnd   = (u8*)memory.pMemory + memory.uMemorySize;
 
     return true;
 }
@@ -58,7 +92,7 @@ void lzy_free(void* ptr, u64 uSize, LzyMemoryTag memTag)
     memStats.uTotalAllocs -= uSize;
     memStats.uTaggedAllocs[memTag] -= uSize;
 
-    lzy_platform_free(ptr, 0);
+    lzy_platform_free(ptr, uSize,8);
 }
 
 

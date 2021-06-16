@@ -88,6 +88,11 @@ b8 lzy_platform_create(LzyPlatform* pPlatform, const char* pWindowTitle, u16 uRe
 	return true;
 }
 
+u64 lzy_platform_get_implementation_size()
+{
+	return sizeof(LzyPlatform_impl);
+}
+
 void lzy_platform_get_surface_create_info(LzyPlatform platform, LzyWindowSurfaceCreateInfo* pSurface)
 {
 	LzyPlatform_impl* pState = platform;
@@ -136,12 +141,12 @@ void lzy_platform_get_framebuffer_size(LzyPlatform platform, u16* pX, u16* pY)
 
 void* lzy_platform_alloc(u64 uSize, u8 uAlignment)
 {
-	return malloc(uSize);
+	return VirtualAlloc(NULL, uSize, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
 }
 
-void lzy_platform_free(void* ptr, u8 uAlignment)
+void lzy_platform_free(void* ptr, u64 uSize, u8 uAlignment)
 {
-	free(ptr);
+	VirtualFree(ptr, 0, MEM_RELEASE);
 }
 
 void* lzy_platform_memcpy(void* pDst, void* pSrc, u64 uSize)
