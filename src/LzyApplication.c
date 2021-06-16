@@ -5,6 +5,7 @@
 #include "LzyMemory.h"
 #include "LzyLog.h"
 #include "LzyEvent.h"
+#include "LzyJobSystem.h"
 #include "LzyTime.h"
 #include <stdlib.h>
 #include <string.h>
@@ -23,6 +24,48 @@ typedef struct LzyApplication
 
 global b8 bIsInitialized = false;
 global LzyApplication lzyApp;
+
+internal_func void _lzy_event_init(void* pArgs)
+{
+    *(b8*)pArgs = lzy_event_init();
+}
+
+internal_func void _lzy_renderer_init(void* pArgs)
+{
+    struct arg_t
+    {
+        LzyGame* pGame;
+        LzySemaphore* pWaitSemaphore;
+        b8* pSucceded;
+    }*pArgs_ = pArgs;
+
+    *(b8*)pArgs = lzy_renderer_init();
+}
+
+internal_func void _lzy_platform_init(void* pArgs)
+{
+    struct arg_t
+    {
+        LzyGame* pGame;
+        LzySemaphore* pWaitSemaphore;
+        b8* pSucceded;
+    }*pArgs_ = pArgs;
+
+    pArgs_->pSucceded = lzy_platform_create(lzyApp.platform, 
+                                            pArgs_->pGame->appConfig.pApplicationName,
+                                            pArgs_->pGame->appConfig.uResX,
+                                            pArgs_->pGame->appConfig.uResY
+                                            );
+    if(*(b8*)pArgs)
+    {
+        LzyJob jobRenderer;
+        jobRenderer.fpJob = _lzy_renderer_init;
+        jobRenderer.pArgs = pArgs;
+        lzy_job_system_enque(&jobRenderer);
+    }
+}
+
+
 
 b8 lzy_application_create(LzyGame *pGame)
 {
@@ -46,6 +89,12 @@ b8 lzy_application_create(LzyGame *pGame)
         return false;
     }
 
+    if(!lzy_job_system_init())
+    {
+        LCOREFATAL("Could not initialize job system!");
+        return false;
+    }
+
     if (!lzy_platform_create(&lzyApp.platform,
                              pGame->appConfig.pApplicationName,
                              pGame->appConfig.uResX,
@@ -63,6 +112,24 @@ b8 lzy_application_create(LzyGame *pGame)
    
 
     //Subsystem Initializations
+#if 1
+    
+    b8 bPlatformInitialized;
+    b8 bEventInitialized;
+    b8 bRendererInitialized;
+
+    LzyJob jobEvent;
+    jobEvent.fpJob = _lzy_event_init;
+    jobEvent.pArgs = &bEventInitialized;
+
+    LzyJob jobPlatform;
+    jobPlatform.fpJob = _lzy_platform_init;
+    jobPlatform.pArgs = &bPlatformInitialized;
+    
+
+    lzy_job_system_enque(&jobPlatform);
+    lzy_job_system_enque(&jobEvent);
+#else
 
     if(!lzy_event_init())
     {
@@ -75,6 +142,7 @@ b8 lzy_application_create(LzyGame *pGame)
         LCOREFATAL("Could not initialize renderer subsystem!");
         return false;
     }
+#endif
 
     //TODO Memory Stage 2
 

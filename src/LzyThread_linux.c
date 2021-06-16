@@ -2,16 +2,6 @@
 #include "LzyThread.h"
 #include "LzyLog.h"
 
-b8 lzy_thread_init()
-{
-
-	return true;
-}
-void lzy_thread_shutdown()
-{
-
-}
-
 b8 lzy_thread_create(LzyThread* pThread, void*(*fpRoutine)(void* pData), void* pArgs)
 {
 	if(pthread_create(pThread,NULL, fpRoutine, pArgs) != 0)
@@ -30,9 +20,15 @@ b8 lzy_mutex_init(LzyMutex* pMutex)
 		LCOREFATAL("Could not initialize mutex (error: %d)", iErrorCode);
 		return false;
 	}
-
 	return true;
 }
+
+
+b8 lzy_semaphore_value(LzySemaphore* pSemaphore, i32* pValue)
+{
+	return sem_getvalue(pSemaphore, pValue) == 0;
+}
+
 b8 lzy_mutex_lock(LzyMutex* pMutex)
 {
 	pthread_mutex_lock(pMutex);
@@ -44,16 +40,14 @@ b8 lzy_mutex_unlock(LzyMutex* pMutex)
 	return true;
 }
 
-
-b8 lzy_semaphore_init(LzySemaphore* pSemaphore)
+b8 lzy_semaphore_init(LzySemaphore* pSemaphore, u64 uInitialValue)
 {
-	i32 iErrorCode = sem_init(pSemaphore, 0, 0); 
+	i32 iErrorCode = sem_init(pSemaphore, 0, uInitialValue); 
 	if(iErrorCode != 0)
 	{
 		LCOREFATAL("Could not initialize semaphore");
 		return false;
 	}
-
 	return true;
 }
 b8 lzy_semaphore_signal(LzySemaphore* pSemaphore)

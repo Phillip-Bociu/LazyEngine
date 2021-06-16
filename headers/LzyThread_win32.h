@@ -1,6 +1,6 @@
 #pragma once
-#include "LzyDefines.h"
 #ifdef _WIN32
+#include "LzyDefines.h"
 #include <Windows.h>
 
 typedef HANDLE LzyThread;
