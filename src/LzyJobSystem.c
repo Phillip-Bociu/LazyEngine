@@ -13,6 +13,9 @@ typedef struct LzyJobQueue
 }LzyJobQueue;
 
 
+// j1 j2 
+// j3
+
 
 typedef struct LzyThreadPool
 {
@@ -26,7 +29,6 @@ typedef struct LzyThreadPool
 
 global LzyThreadPool threadPool;
 
-
 internal_func void lzy_job_queue_enque(LzyJobQueue* pQueue, LzyJob* pJob)
 {
 	pQueue->queue[pQueue->uRear] = *pJob;
@@ -37,10 +39,8 @@ internal_func LzyJob lzy_job_queue_deque(LzyJobQueue* pQueue)
 {
 	LzyJob retval = pQueue->queue[pQueue->uFront];
 	pQueue->uFront = (pQueue->uFront + 1) % LZY_JOB_QUEUE_SIZE;
-	sem_
 	return retval;
 }
-
 
 internal_func void *jobFunc(void *_)
 {
@@ -99,6 +99,7 @@ b8 lzy_job_system_init()
 
 b8 lzy_job_system_enque(LzyJob* pJob)
 {
+
 	lzy_semaphore_wait(&threadPool.semEmpty);
 	lzy_mutex_lock(&threadPool.mutexQueue);
 

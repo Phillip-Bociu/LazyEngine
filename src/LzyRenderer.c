@@ -180,7 +180,6 @@ internal_func VkInstance lzy_create_instance()
 
 	appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
 	appInfo.apiVersion = max(uSupportedInstanceVersion, VK_API_VERSION_1_2);
-	//appInfo.apiVersion = VK_API_VERSION_1_1;
 
 	u32 uFoundLayers = 0;
 #ifndef _DEBUG

@@ -27,7 +27,7 @@ b8 lzy_semaphore_init(LzySemaphore* pSemaphore)
 }
 b8 lzy_semaphore_signal(LzySemaphore* pSemaphore)
 {
-	WakeConditionVariable(pSemaphore);
+	ReleaseSemaphore(*pSemaphore, 1, NULL);
 	return true;
 }
 b8 lzy_semaphore_wait(LzySemaphore* pSemaphore, LzyMutex* pMutex)

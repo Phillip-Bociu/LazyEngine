@@ -7,12 +7,19 @@ typedef struct LzyJobResult
 	void* pResult;
 }LzyJobResult;
 
+
+
 typedef struct LzyJob
 {
 	void(*fpJob)(void* pArgs);
 	void* pArgs;
 }LzyJob;
- 
+
+
+
+// j1 j2
+// j3
+// j4 
 
 b8 lzy_job_system_init();
 void lzy_job_system_shutdown();

@@ -5,6 +5,6 @@
 
 typedef HANDLE LzyThread;
 typedef CRITICAL_SECTION LzyMutex;
-typedef CONDITION_VARIABLE LzySemaphore;
+typedef HANDLE LzySemaphore;
 
 #endif
