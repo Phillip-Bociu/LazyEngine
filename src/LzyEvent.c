@@ -20,7 +20,7 @@ global LzyEventSystem *pEventSystem;
 
 b8 lzy_event_init()
 {
-	pEventSystem = lzy_alloc(sizeof(LzyEventSystem), 8, LZY_MEMORY_TAG_EVENT_SYSTEM);
+	pEventSystem = lzy_alloc(sizeof(LzyEventSystem), 8, LZY_MEMORY_TAG_EVENT_SYSTEM_STATE);
 	bIsInitialized = true;
 	LINFO("Event Subsystem Initialized");
 	return true;

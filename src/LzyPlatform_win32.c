@@ -47,7 +47,7 @@ b8 lzy_platform_create(LzyPlatform* pPlatform, const char* pWindowTitle, u16 uRe
 		pLongWindowTitle[i] = pWindowTitle[i];
 	}
 
-	*pPlatform = lzy_alloc(sizeof(LzyPlatform_impl), 8, LZY_MEMORY_TAG_PLATFORM);
+	*pPlatform = lzy_alloc(sizeof(LzyPlatform_impl), 8, LZY_MEMORY_TAG_PLATFORM_STATE);
 	LzyPlatform_impl* pState = *pPlatform;
 
 	WNDCLASS windowClass;
