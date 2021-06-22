@@ -28,4 +28,5 @@ void* lzy_platform_memset(void* pDst, u8 uVal, u64 uSize);
 void* lzy_platform_memzero(void* pDst, u64 uSize);
 void lzy_platform_sleep(u64 uMs);
 f64 lzy_platform_get_time();
+u16 lzy_platform_get_number_of_threads();
 u64 lzy_platform_get_implementation_size();

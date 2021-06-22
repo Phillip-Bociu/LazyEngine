@@ -10,6 +10,7 @@
 #include <sys/time.h>
 #include <unistd.h>
 #include <sys/mman.h>
+#include<sys/sysinfo.h>
 
 #include <string.h>
 #include <stdlib.h>
@@ -251,6 +252,11 @@ void lzy_platform_sleep(u64 uMs)
 void *lzy_platform_alloc(u64 uSize, u8 uAlignment)
 {
 	return mmap(NULL, uSize, PROT_WRITE | PROT_READ, MAP_PRIVATE | MAP_ANON, -1, 0);
+}
+
+u16 lzy_platform_get_number_of_threads()
+{
+	return get_nprocs(); 
 }
 
 void lzy_platform_free(void* ptr, u64 uSize, u8 uAlignment)
