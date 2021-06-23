@@ -21,18 +21,19 @@ b8 lzy_mutex_unlock(LzyMutex* pMutex)
 	return true;
 }
 
-b8 lzy_semaphore_init(LzySemaphore* pSemaphore)
+b8 lzy_semaphore_init(LzySemaphore* pSemaphore, u64 uInitialValue)
 {
-	InitializeConditionVariable(pSemaphore);
+	*pSemaphore = CreateSemaphore(NULL, uInitialValue, 1024, NULL);
+	return (*pSemaphore != NULL);
 }
 b8 lzy_semaphore_signal(LzySemaphore* pSemaphore)
 {
 	ReleaseSemaphore(*pSemaphore, 1, NULL);
 	return true;
 }
-b8 lzy_semaphore_wait(LzySemaphore* pSemaphore, LzyMutex* pMutex)
+b8 lzy_semaphore_wait(LzySemaphore* pSemaphore)
 {
-	SleepConditionVariableCS(pSemaphore, pMutex, INFINITE);
+	WaitForSingleObject(*pSemaphore, INFINITE);
 	return true;
 }
 

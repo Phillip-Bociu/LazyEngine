@@ -135,7 +135,7 @@ internal_func b8 lzy_is_device_suitable(VkPhysicalDevice physicalDevice, const c
 	VkPhysicalDeviceProperties props;
 	//VkPhysicalDeviceFeatures feats;
 	vkGetPhysicalDeviceProperties(physicalDevice, &props);
-	if (props.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU || props.deviceType == VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU)
+	//if (props.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU || props.deviceType == VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU)
 	{
 		if (lzy_check_device_extension_support(physicalDevice, ppExtensionNames, uNameCount))
 		{
@@ -179,7 +179,7 @@ internal_func VkInstance lzy_create_instance()
 	VkApplicationInfo appInfo = {0};
 
 	appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-	appInfo.apiVersion = max(uSupportedInstanceVersion, VK_API_VERSION_1_2);
+	appInfo.apiVersion = VK_API_VERSION_1_2;
 
 	u32 uFoundLayers = 0;
 #ifndef _DEBUG

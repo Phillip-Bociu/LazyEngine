@@ -18,8 +18,9 @@ typedef struct LzyThreadPool
 {
 	LzyMutex mutexFreeQueue;
 	LzyMutex mutexParentQueue;
-	LzySemaphore semFull;
-	LzySemaphore semEmpty;
+	LzySemaphore semFreeFull;
+	LzySemaphore semFreeEmpty;
+	LzySemaphore semParentEmpty;
 	LzyThread threads[LZY_THREAD_POOL_SIZE];
 	LzyJobQueue freeJobQueue;
 	LzyJobQueue parentJobQueue;
@@ -27,29 +28,6 @@ typedef struct LzyThreadPool
 } LzyThreadPool;
 
 global LzyThreadPool threadPool;
-
-internal_func void lzy_job_system_finish_job(u32 uJobParentID)
-{
-	if(uJobParentID == -1)
-		return;
-	i32 toMove = -1;
-	lzy_mutex_lock(&threadPool.mutexFreeQueue);
-	for(i32 i = threadPool.parentJobQueue.uRear; i != threadPool.parentJobQueue.uFront; i = LZY_JOB_QUEUE_MOD(i+1))
-	{
-		if(threadPool.parentJobQueue.queue[i].uJobID == uJobParentID)
-		{
-			threadPool.parentJobQueue.queue[i].uUnfinishedChildJobs--;
-			if(threadPool.parentJobQueue.queue[i].uUnfinishedChildJobs == 0)
-			{
-				lzy_job_queue_enque(&threadPool.freeJobQueue, &threadPool.parentJobQueue.queue[i]);
-				threadPool.parentJobQueue.queue[i] = threadPool.parentJobQueue.queue[threadPool.parentJobQueue.uFront];
-				threadPool.parentJobQueue.uFront = LZY_JOB_QUEUE_MOD(threadPool.parentJobQueue.uFront - 1);
-			}
-			break;
-		}
-	}
-	lzy_mutex_unlock(&threadPool.mutexFreeQueue);
-}
 
 internal_func void lzy_job_queue_enque(LzyJobQueue* pQueue, LzyJob* pJob)
 {
@@ -65,45 +43,81 @@ internal_func LzyJob lzy_job_queue_deque(LzyJobQueue* pQueue)
 	return retval;
 }
 
+internal_func void lzy_job_system_finish_job(u32 uJobParentID)
+{
+	if (uJobParentID == LZY_JOB_ID_INVALID)
+		return;
+	i32 toMove = -1;
+	lzy_mutex_lock(&threadPool.mutexParentQueue);
+	for (i32 i = threadPool.parentJobQueue.uFront; i != threadPool.parentJobQueue.uRear; i = LZY_JOB_QUEUE_MOD(i + 1))
+	{
+		if (threadPool.parentJobQueue.queue[i].uJobID == uJobParentID)
+		{
+			threadPool.parentJobQueue.queue[i].uUnfinishedChildJobs--;
+			if (threadPool.parentJobQueue.queue[i].uUnfinishedChildJobs == 0)
+			{
+				lzy_mutex_lock(&threadPool.mutexFreeQueue);
+				lzy_job_queue_enque(&threadPool.freeJobQueue, &threadPool.parentJobQueue.queue[i]);
+				lzy_semaphore_signal(&threadPool.semFreeFull);
+				lzy_mutex_unlock(&threadPool.mutexFreeQueue);
+				LzyJob aux = threadPool.parentJobQueue.queue[i];
+				threadPool.parentJobQueue.queue[i] = threadPool.parentJobQueue.queue[threadPool.parentJobQueue.uFront];
+				threadPool.parentJobQueue.queue[threadPool.parentJobQueue.uFront] = aux;
+				lzy_job_queue_deque(&threadPool.parentJobQueue);
+				lzy_semaphore_signal(&threadPool.semParentEmpty);
+			}
+			break;
+		}
+	}
+	lzy_mutex_unlock(&threadPool.mutexParentQueue);
+}
+
+
+
 internal_func void *jobFunc(void *_)
 {
 	while (!threadPool.bShouldClose)
 	{
-		lzy_semaphore_wait(&threadPool.semFull);
+		lzy_semaphore_wait(&threadPool.semFreeFull);
 		lzy_mutex_lock(&threadPool.mutexFreeQueue);
 		if (threadPool.bShouldClose)
 			break;
-
+		LCOREINFO("Executing Job!");
 		LzyJob job = lzy_job_queue_deque(&threadPool.freeJobQueue);
 
 		lzy_mutex_unlock(&threadPool.mutexFreeQueue);
-		lzy_semaphore_signal(&threadPool.semEmpty);
-		job.fpJob(&job, job.pArgs);
+		lzy_semaphore_signal(&threadPool.semFreeEmpty);
+		job.fpJobFunc(&job, job.pArgs);
 		lzy_job_system_finish_job(job.uParentID);
 	}
 	lzy_mutex_unlock(&threadPool.mutexFreeQueue);
-	lzy_semaphore_signal(&threadPool.semEmpty);
+	lzy_semaphore_signal(&threadPool.semFreeEmpty);
 	return NULL;
 }
 
 b8 lzy_job_system_is_idle()
 {
-	i32 iVal;
-	lzy_semaphore_value(&threadPool.semFull, &iVal);
-	return iVal == 0;
+	return threadPool.freeJobQueue.uFront == threadPool.freeJobQueue.uRear && 
+	threadPool.parentJobQueue.uFront == threadPool.parentJobQueue.uRear;
 }
 
 b8 lzy_job_system_init()
 {
 	lzy_memzero(&threadPool, sizeof(threadPool));
 
-	if (!lzy_semaphore_init(&threadPool.semFull, 0))
+	if (!lzy_semaphore_init(&threadPool.semFreeFull, 0))
 	{
 		LCOREFATAL("Could not initialize semaphore");
 		return false;
 	}
 
-	if (!lzy_semaphore_init(&threadPool.semEmpty, LZY_JOB_QUEUE_SIZE))
+	if (!lzy_semaphore_init(&threadPool.semFreeEmpty, LZY_JOB_QUEUE_SIZE))
+	{
+		LCOREFATAL("Could not initialize semaphore");
+		return false;
+	}
+
+	if (!lzy_semaphore_init(&threadPool.semParentEmpty, LZY_JOB_QUEUE_SIZE))
 	{
 		LCOREFATAL("Could not initialize semaphore");
 		return false;
@@ -111,41 +125,42 @@ b8 lzy_job_system_init()
 
 	if (!lzy_mutex_init(&threadPool.mutexFreeQueue))
 	{
+		LCOREFATAL("Could not initialize mutex");
+		return false;
+	}
+
+	if (!lzy_mutex_init(&threadPool.mutexParentQueue))
+	{
 		LCOREFATAL("Could not initialize semaphore");
 		return false;
 	}
 
-	for (u32 i = 0; i < LZY_THREAD_POOL_SIZE; i++)
+	threadPool.bShouldClose = false;
+
+
+	for (u32 i = 0; i < 1; i++)
 	{
 		lzy_thread_create(&threadPool.threads[i], jobFunc, NULL);
 	}
 }
 
-b8 lzy_job_system_enque(LzyJob* pJob)
-{
-
-	lzy_semaphore_wait(&threadPool.semEmpty);
-	lzy_mutex_lock(&threadPool.mutexFreeQueue);
-
-	lzy_job_queue_enque(&threadPool.freeJobQueue, pJob);
-
-	lzy_mutex_unlock(&threadPool.mutexFreeQueue);
-	lzy_semaphore_signal(&threadPool.semFull);
-
-	return true;
+void lzy_job_system_shutdown()
+{	
+	threadPool.bShouldClose = true;
 }
+
 
 b8 lzy_job_system_enque_free_job(LzyJobFunc fpJobFunc, void* pArgs, u32 uParentID)
 {
 	LzyJob job = {.fpJobFunc = fpJobFunc, .pArgs = pArgs, .uParentID = uParentID};
 
-	lzy_semaphore_wait(&threadPool.semEmpty);
+	lzy_semaphore_wait(&threadPool.semFreeEmpty);
 	lzy_mutex_lock(&threadPool.mutexFreeQueue);
 
 	lzy_job_queue_enque(&threadPool.freeJobQueue, &job);
 
 	lzy_mutex_unlock(&threadPool.mutexFreeQueue);
-	lzy_semaphore_signal(&threadPool.semFull);
+	lzy_semaphore_signal(&threadPool.semFreeFull);
 
 	return true;
 }
@@ -157,15 +172,14 @@ u32 lzy_job_system_enque_parent_job(LzyJobFunc fpJobFunc, void* pArgs, u32 uChil
 	LzyJob job = {.fpJobFunc = fpJobFunc, .pArgs = pArgs,.uJobID = uID, .uUnfinishedChildJobs = uChildJobCount, };
 	uID = (uID + 1) % LZY_JOB_ID_INVALID;
 
-	lzy_semaphore_wait(&threadPool.semEmpty);
-	lzy_mutex_lock(&threadPool.mutexFreeQueue);
+	lzy_semaphore_wait(&threadPool.semParentEmpty);
+	lzy_mutex_lock(&threadPool.mutexParentQueue);
 
 	lzy_job_queue_enque(&threadPool.parentJobQueue, &job);
 
-	lzy_mutex_unlock(&threadPool.mutexFreeQueue);
-	lzy_semaphore_signal(&threadPool.semFull);
+	lzy_mutex_unlock(&threadPool.mutexParentQueue);
 
 	
-	return true;
+	return job.uJobID;
 }
 

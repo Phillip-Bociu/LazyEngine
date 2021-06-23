@@ -25,49 +25,34 @@ typedef struct LzyApplication
 global b8 bIsInitialized = false;
 global LzyApplication lzyApp;
 
-internal_func void _lzy_event_init(void* pArgs)
+internal_func void _lzy_event_init(LzyJob* pJob, void* pArgs)
 {
     *(b8*)pArgs = lzy_event_init();
 }
 
-internal_func void _lzy_renderer_init(void* pArgs)
+internal_func void _lzy_renderer_init(LzyJob* pJob, void* pArgs)
 {
-    struct arg_t
-    {
-        LzyGame* pGame;
-        LzySemaphore* pWaitSemaphore;
-        b8* pSucceded;
-    }*pArgs_ = pArgs;
-
     *(b8*)pArgs = lzy_renderer_init();
 }
 
-internal_func void _lzy_platform_init(void* pArgs)
+internal_func void _lzy_platform_init(LzyJob* pJob, void* pArgs)
 {
     struct arg_t
     {
         LzyGame* pGame;
-        LzySemaphore* pWaitSemaphore;
         b8* pSucceded;
     }*pArgs_ = pArgs;
 
-    pArgs_->pSucceded = lzy_platform_create(lzyApp.platform, 
+    pArgs_->pSucceded = lzy_platform_create(&lzyApp.platform, 
                                             pArgs_->pGame->appConfig.pApplicationName,
                                             pArgs_->pGame->appConfig.uResX,
                                             pArgs_->pGame->appConfig.uResY
                                             );
-    if(*(b8*)pArgs)
-    {
-        LzyJob jobRenderer;
-        jobRenderer.fpJob = _lzy_renderer_init;
-        jobRenderer.pArgs = pArgs;
-        lzy_job_system_enque(&jobRenderer);
-    }
 }
 
 
 
-b8 lzy_application_create(LzyGame *pGame)
+b8 lzy_application_create(LzyGame* pGame)
 {
     if (bIsInitialized)
     {
@@ -83,13 +68,13 @@ b8 lzy_application_create(LzyGame *pGame)
     LCOREASSERT(false, "Assertion Test");
 
 
-    if(!lzy_memory_init(&pGame->appConfig.memoryConfig))
+    if (!lzy_memory_init(&pGame->appConfig.memoryConfig))
     {
         LCOREFATAL("Could not initialize memory subsystem!");
         return false;
     }
 
-    if(!lzy_job_system_init())
+    if (!lzy_job_system_init())
     {
         LCOREFATAL("Could not initialize job system!");
         return false;
@@ -109,26 +94,35 @@ b8 lzy_application_create(LzyGame *pGame)
     lzyApp.bIsRunning = true;
     lzyApp.bIsSuspended = false;
 
-   
+
 
     //Subsystem Initializations
 #if 1
-    
-    b8 bPlatformInitialized;
+
     b8 bEventInitialized;
-    b8 bRendererInitialized;
+    b8 bRendererInitialized = true;
 
-    LzyJob jobEvent;
-    jobEvent.fpJob = _lzy_event_init;
-    jobEvent.pArgs = &bEventInitialized;
+    lzy_job_system_enque_free_job(_lzy_renderer_init, &bRendererInitialized, LZY_JOB_ID_INVALID);
+    lzy_job_system_enque_free_job(_lzy_event_init, &bEventInitialized, LZY_JOB_ID_INVALID);
 
-    LzyJob jobPlatform;
-    jobPlatform.fpJob = _lzy_platform_init;
-    jobPlatform.pArgs = &bPlatformInitialized;
-    
+    while (!lzy_job_system_is_idle())
+    {
+    }
 
-    lzy_job_system_enque(&jobPlatform);
-    lzy_job_system_enque(&jobEvent);
+    if (!bEventInitialized)
+    {
+        LCOREFATAL("Could not initialize event subsystem!");
+        return false;
+    }
+
+    if (!bRendererInitialized)
+    {
+        LCOREFATAL("Could not initialize renderer subsystem!");
+        return false;
+    }
+
+
+    LCOREINFO("Gata");
 #else
 
     if(!lzy_event_init())
@@ -202,7 +196,7 @@ b8 lzy_application_run()
                 break;
             }
 
-            lzy_renderer_loop();
+            //lzy_renderer_loop();
         }
 
         uFrameCounter++;
