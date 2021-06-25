@@ -138,10 +138,12 @@ b8 lzy_job_system_init()
 	threadPool.bShouldClose = false;
 
 
-	for (u32 i = 0; i < 1; i++)
+	for (u32 i = 0; i < LZY_THREAD_POOL_SIZE; i++)
 	{
 		lzy_thread_create(&threadPool.threads[i], jobFunc, NULL);
 	}
+
+	return true;
 }
 
 void lzy_job_system_shutdown()

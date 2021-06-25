@@ -13,3 +13,4 @@ LAPI b8 lzy_semaphore_init(LzySemaphore* pSemaphore, u64 uInitialValue);
 LAPI b8 lzy_semaphore_signal(LzySemaphore* pSemaphore);
 LAPI b8 lzy_semaphore_wait(LzySemaphore* pSemaphore);
 LAPI b8 lzy_semaphore_value(LzySemaphore* pSemaphore, i32* pValue);
+LAPI b8 lzy_semaphore_destroy(LzySemaphore* pSemaphore);

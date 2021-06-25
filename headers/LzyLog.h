@@ -1,7 +1,7 @@
 #pragma once
 #include "LzyDefines.h"
 
-#ifdef _DEBUG
+#if _DEBUG
 	#define LZY_LOG_TRACE_ENABLED
 	#define LZY_LOG_INFO_ENABLED
 	#define LZY_LOG_WARN_ENABLED

@@ -70,7 +70,7 @@ b8 lzy_platform_create(LzyPlatform *pPlatform, const char *pWindowTitle, u16 uRe
 	LzyWindow_impl *pState = *pPlatform;
 
 	pState->pDisplay = XOpenDisplay(NULL);
-	XAutoRepeatOff(pState->pDisplay);
+	//XAutoRepeatOff(pState->pDisplay);
 
 	pState->pConnection = XGetXCBConnection(pState->pDisplay);
 

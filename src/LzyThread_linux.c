@@ -20,9 +20,12 @@ b8 lzy_mutex_init(LzyMutex* pMutex)
 		LCOREFATAL("Could not initialize mutex (error: %d)", iErrorCode);
 		return false;
 	}
-	return true;
+	return (true);
 }
-
+b8 lzy_semaphore_destroy(LzySemaphore* pSemaphore)
+{
+	return (sem_destroy(pSemaphore) == 0);
+}
 
 b8 lzy_semaphore_value(LzySemaphore* pSemaphore, i32* pValue)
 {

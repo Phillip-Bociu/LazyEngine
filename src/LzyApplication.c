@@ -25,14 +25,28 @@ typedef struct LzyApplication
 global b8 bIsInitialized = false;
 global LzyApplication lzyApp;
 
-internal_func void _lzy_event_init(LzyJob* pJob, void* pArgs)
+internal_func void _lzy_event_init(LzyJob* pJob, void* pArgs_)
 {
-    *(b8*)pArgs = lzy_event_init();
+    struct InitArgs_t
+    {
+        b8* pResult;
+        LzySemaphore* pSem;
+    }*pArgs = (struct InitArgs_t*)pArgs_;
+
+    *pArgs->pResult = lzy_event_init();
+    lzy_semaphore_signal(pArgs->pSem);
 }
 
-internal_func void _lzy_renderer_init(LzyJob* pJob, void* pArgs)
+internal_func void _lzy_renderer_init(LzyJob* pJob, void* pArgs_)
 {
-    *(b8*)pArgs = lzy_renderer_init();
+    struct InitArgs_t
+    {
+        b8* pResult;
+        LzySemaphore* pSem;
+    }*pArgs = (struct InitArgs_t*)pArgs_;
+
+    *pArgs->pResult = lzy_renderer_init();
+    lzy_semaphore_signal(pArgs->pSem);
 }
 
 internal_func void _lzy_platform_init(LzyJob* pJob, void* pArgs)
@@ -49,7 +63,6 @@ internal_func void _lzy_platform_init(LzyJob* pJob, void* pArgs)
                                             pArgs_->pGame->appConfig.uResY
                                             );
 }
-
 
 
 b8 lzy_application_create(LzyGame* pGame)
@@ -100,14 +113,31 @@ b8 lzy_application_create(LzyGame* pGame)
 #if 1
 
     b8 bEventInitialized;
-    b8 bRendererInitialized = true;
+    b8 bRendererInitialized;
 
-    lzy_job_system_enque_free_job(_lzy_renderer_init, &bRendererInitialized, LZY_JOB_ID_INVALID);
-    lzy_job_system_enque_free_job(_lzy_event_init, &bEventInitialized, LZY_JOB_ID_INVALID);
+    LzySemaphore semInit;
 
-    while (!lzy_job_system_is_idle())
+    struct InitArgs_t
     {
-    }
+        b8* pResult;
+        LzySemaphore* pSem;
+    }eventArgs, rendererArgs;
+
+    eventArgs.pResult = &bEventInitialized;
+    eventArgs.pSem = &semInit;
+
+    rendererArgs.pResult = &bRendererInitialized;
+    rendererArgs.pSem = &semInit;
+
+    lzy_semaphore_init(&semInit, 0);
+
+    lzy_job_system_enque_free_job(_lzy_renderer_init, &eventArgs, LZY_JOB_ID_INVALID);
+    lzy_job_system_enque_free_job(_lzy_event_init, &rendererArgs, LZY_JOB_ID_INVALID);
+
+    lzy_semaphore_wait(&semInit);
+    lzy_semaphore_wait(&semInit);
+
+    lzy_semaphore_destroy(&semInit);
 
     if (!bEventInitialized)
     {
@@ -121,8 +151,8 @@ b8 lzy_application_create(LzyGame* pGame)
         return false;
     }
 
-
     LCOREINFO("Gata");
+
 #else
 
     if(!lzy_event_init())
@@ -196,7 +226,7 @@ b8 lzy_application_run()
                 break;
             }
 
-            //lzy_renderer_loop();
+            lzy_renderer_loop();
         }
 
         uFrameCounter++;
