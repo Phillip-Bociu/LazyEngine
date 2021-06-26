@@ -1,10 +1,11 @@
-
+#include <assert.h>
 #include "LzyLog.h"
 #include "LzyRenderer.h"
 #include "LzyApplication.h"
 #include "LzyMemory.h"
 #include <vulkan/vulkan.h>
 #include <string.h>
+#include <stdlib.h>
 #include <stdio.h>
 
 typedef struct LzyQueueFamilyIndices
@@ -35,17 +36,142 @@ typedef struct LzyRendererState
 	VkSwapchainKHR swapchain;
 	u32 uSwapchainImageCount;
 	VkImage *pSwapchainImages;
-	VkFramebuffer* pSwapchainFramebuffers;
-	VkImageView* pSwapchainImageViews;
+	VkFramebuffer *pSwapchainFramebuffers;
+	VkImageView *pSwapchainImageViews;
 	VkCommandPool commandPool;
 	VkCommandBuffer commandBuffer;
 	VkSemaphore acquireSemaphore;
 	VkSemaphore releaseSemaphore;
 	VkRenderPass renderPass;
+	VkShaderModule triangleVertexShader;
+	VkShaderModule triangleFragmentShader;
+	VkPipeline trianglePipeline;
+	VkDebugReportCallbackEXT debugMessenger;
 } LzyRendererState;
 
 global b8 bIsInitialized = false;
 global LzyRendererState rendererState;
+
+internal_func b8 lzy_create_graphics_pipeline_layout(VkPipelineLayout *pLayout)
+{
+
+	VkPipelineLayoutCreateInfo createInfo = {VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
+
+	if (vkCreatePipelineLayout(rendererState.device, &createInfo, NULL, pLayout) != VK_SUCCESS)
+	{
+		LCOREFATAL("Could not create graphics pipeline layout");
+		return false;
+	}
+
+	return true;
+}
+
+internal_func b8 lzy_create_graphics_pipeline(VkPipeline *pPipeline, VkShaderModule shaderModuleVertex, VkShaderModule shaderModuleFragment)
+{
+
+	VkPipelineLayout layout;
+	if (!lzy_create_graphics_pipeline_layout(&layout))
+	{
+		return false;
+	}
+
+	VkGraphicsPipelineCreateInfo createInfo = {VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO};
+
+	VkPipelineShaderStageCreateInfo shaderStageCreateInfos[2] = {0};
+	shaderStageCreateInfos[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+	shaderStageCreateInfos[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
+	shaderStageCreateInfos[0].module = shaderModuleVertex;
+	shaderStageCreateInfos[0].pName = "main";
+
+	shaderStageCreateInfos[1].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+	shaderStageCreateInfos[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+	shaderStageCreateInfos[1].module = shaderModuleFragment;
+	shaderStageCreateInfos[1].pName = "main";
+
+	createInfo.stageCount = countof(shaderStageCreateInfos);
+	createInfo.pStages = shaderStageCreateInfos;
+
+	VkPipelineVertexInputStateCreateInfo inputStateCreateInfo = {VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO};
+
+	createInfo.pVertexInputState = &inputStateCreateInfo;
+
+	VkPipelineInputAssemblyStateCreateInfo inputAssemblyCreateInfo = {VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO};
+	inputAssemblyCreateInfo.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+
+	createInfo.pInputAssemblyState = &inputAssemblyCreateInfo;
+
+	VkPipelineViewportStateCreateInfo viewportStateCreateInfo = {VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO};
+	viewportStateCreateInfo.viewportCount = 1;
+	viewportStateCreateInfo.scissorCount = 1;
+	createInfo.pViewportState = &viewportStateCreateInfo;
+
+	VkPipelineRasterizationStateCreateInfo rasterizationStateCreateInfo = {VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO};
+	rasterizationStateCreateInfo.lineWidth = 1.0f;
+	createInfo.pRasterizationState = &rasterizationStateCreateInfo;
+
+	VkPipelineMultisampleStateCreateInfo multisampleStateCreateInfo = {VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO};
+	multisampleStateCreateInfo.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+	createInfo.pMultisampleState = &multisampleStateCreateInfo;
+
+	VkPipelineDepthStencilStateCreateInfo depthStencilStateCreateInfo = {VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO};
+	createInfo.pDepthStencilState = &depthStencilStateCreateInfo;
+
+	VkPipelineColorBlendAttachmentState colorAttachment = {
+		.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT};
+
+	VkPipelineColorBlendStateCreateInfo colorBlendStateCreateInfo = {VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO};
+	colorBlendStateCreateInfo.attachmentCount = 1;
+	colorBlendStateCreateInfo.pAttachments = &colorAttachment;
+	createInfo.pColorBlendState = &colorBlendStateCreateInfo;
+
+	VkPipelineDynamicStateCreateInfo dynamicStateCreateInfo = {VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO};
+
+	VkDynamicState dynamicStates[] = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
+	dynamicStateCreateInfo.dynamicStateCount = countof(dynamicStates);
+	dynamicStateCreateInfo.pDynamicStates = dynamicStates;
+
+	createInfo.pDynamicState = &dynamicStateCreateInfo;
+	createInfo.layout = layout;
+	createInfo.renderPass = rendererState.renderPass;
+
+	if (vkCreateGraphicsPipelines(rendererState.device, VK_NULL_HANDLE, 1, &createInfo, NULL, pPipeline) != VK_SUCCESS)
+	{
+		LCOREFATAL("Could not create graphics pipeline");
+		return false;
+	}
+	return true;
+}
+
+internal_func b8 lzy_create_shader_module(VkShaderModule *pShaderModule, const c8 *pShaderPath)
+{
+	FILE *pFile = fopen(pShaderPath, "rb");
+	fseek(pFile, 0, SEEK_END);
+	u64 uFileSize = ftell(pFile);
+	fseek(pFile, 0, SEEK_SET);
+
+	u32 *pBuffer = lzy_alloc(uFileSize, 4, LZY_MEMORY_TAG_STRING);
+	u64 uBytesRead = sizeof(u32) * fread(pBuffer, sizeof(u32), uFileSize / sizeof(u32), pFile);
+	if (uBytesRead != uFileSize)
+	{
+		LCOREFATAL("Could not read shader file %s", pShaderPath);
+		return false;
+	}
+
+	VkShaderModuleCreateInfo createInfo = {
+		.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+		.codeSize = uFileSize,
+		.pCode = pBuffer,
+	};
+
+	if (vkCreateShaderModule(rendererState.device, &createInfo, NULL, pShaderModule) != VK_SUCCESS)
+	{
+		LCOREFATAL("Could not create shader module for file %s", pShaderModule);
+		return false;
+	}
+
+	lzy_free(pBuffer, uFileSize, LZY_MEMORY_TAG_STRING);
+	return true;
+}
 
 internal_func b8 lzy_create_command_pool(VkCommandPool *pCommandPool, u32 uFamilyIndex)
 {
@@ -98,7 +224,7 @@ internal_func LzySwapchainSupportDetails lzy_get_swapchain_support_details(VkPhy
 
 internal_func b8 lzy_qfam_is_complete(LzyQueueFamilyIndices qFams)
 {
-	if (qFams.uGraphicsIndex == -1 || qFams.uPresentIndex == -1)
+	if (qFams.uGraphicsIndex == 255 || qFams.uPresentIndex == 255)
 		return false;
 	else
 		return true;
@@ -136,7 +262,7 @@ internal_func b8 lzy_is_device_suitable(VkPhysicalDevice physicalDevice, const c
 	VkPhysicalDeviceProperties props;
 	//VkPhysicalDeviceFeatures feats;
 	vkGetPhysicalDeviceProperties(physicalDevice, &props);
-	//if (props.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU || props.deviceType == VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU)
+	if (props.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU || props.deviceType == VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU)
 	{
 		if (lzy_check_device_extension_support(physicalDevice, ppExtensionNames, uNameCount))
 		{
@@ -144,6 +270,7 @@ internal_func b8 lzy_is_device_suitable(VkPhysicalDevice physicalDevice, const c
 			if (details.uFormatCount != 0 && details.uPresentModeCount != 0)
 			{
 				*pDetails = details;
+				LCOREERROR("Picking physical device: %s", props.deviceName);
 				return true;
 			}
 		}
@@ -212,7 +339,11 @@ internal_func VkInstance lzy_create_instance()
 	u32 uFoundExtensions = 0;
 	u32 uExtensionCount = 0;
 
+#ifdef _DEBUG
+	const char *ppExtensionNames[] = {LZY_SURFACE_EXT_NAME, "VK_KHR_surface", VK_EXT_DEBUG_REPORT_EXTENSION_NAME};
+#else
 	const char *ppExtensionNames[] = {LZY_SURFACE_EXT_NAME, "VK_KHR_surface"};
+#endif
 
 	vkEnumerateInstanceExtensionProperties(NULL, &uExtensionCount, NULL);
 	VkExtensionProperties *pExtensions = lzy_alloc(sizeof(VkExtensionProperties) * uExtensionCount, 4, LZY_MEMORY_TAG_RENDERER_INIT);
@@ -246,6 +377,52 @@ internal_func VkInstance lzy_create_instance()
 	if (vkCreateInstance(&instanceCreateInfo, NULL, &rendererState.instance) != VK_SUCCESS)
 	{
 		LCOREFATAL("Could not create vulkan instance");
+		return false;
+	}
+	return true;
+}
+
+internal_func VkBool32 lzy_debug_callback(
+    VkDebugReportFlagsEXT                       flags,
+    VkDebugReportObjectTypeEXT                  objectType,
+    uint64_t                                    object,
+    size_t                                      location,
+    int32_t                                     messageCode,
+    const char*                                 pLayerPrefix,
+    const char*                                 pMessage,
+    void*                                       pUserData)
+	{
+		if(flags & (VK_DEBUG_REPORT_ERROR_BIT_EXT))
+		{
+			LCOREFATAL("%s", pMessage);
+			exit(-1);
+		} else if(flags & (VK_DEBUG_REPORT_WARNING_BIT_EXT | VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT))
+		{
+			LCOREWARN("%s", pMessage);
+		} else if(flags &  VK_DEBUG_REPORT_INFORMATION_BIT_EXT)
+		{
+			LCOREINFO("%s",pMessage);
+		}
+
+		
+
+		return VK_FALSE;
+	}
+
+internal_func b8 lzy_create_debug_messenger(VkDebugReportCallbackEXT* pDebugMessenger)
+{
+	VkDebugReportCallbackCreateInfoEXT createInfo = {VK_STRUCTURE_TYPE_DEBUG_REPORT_CALLBACK_CREATE_INFO_EXT};
+	createInfo.flags = VK_DEBUG_REPORT_INFORMATION_BIT_EXT |
+					   VK_DEBUG_REPORT_WARNING_BIT_EXT |
+					   VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT |
+					   VK_DEBUG_REPORT_ERROR_BIT_EXT |
+					   VK_DEBUG_REPORT_DEBUG_BIT_EXT;
+	createInfo.pfnCallback = lzy_debug_callback;
+
+	PFN_vkCreateDebugReportCallbackEXT vkCreateDebugReportCallbackEXT = (PFN_vkCreateDebugReportCallbackEXT)vkGetInstanceProcAddr(rendererState.instance, "vkCreateDebugReportCallbackEXT");
+	if(vkCreateDebugReportCallbackEXT(rendererState.instance, &createInfo, NULL, pDebugMessenger) != VK_SUCCESS)
+	{
+		LCOREFATAL("Could not create vulkan debug messenger");
 		return false;
 	}
 	return true;
@@ -389,6 +566,13 @@ internal_func b8 lzy_create_device(LzyQueueFamilyIndices qFams, const char **ppE
 internal_func b8 lzy_create_swapchain(VkSwapchainKHR *pSwapchain, LzyQueueFamilyIndices qFams, LzySwapchainSupportDetails *pDetails)
 {
 	VkSurfaceFormatKHR chosenFormat = pDetails->pFormats[0];
+
+
+	if(pDetails->uFormatCount == 1 && pDetails->pFormats[0].format == VK_FORMAT_UNDEFINED)
+	{
+		chosenFormat.format = VK_FORMAT_R8G8B8A8_UNORM;
+		chosenFormat.colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
+	}
 
 	for (u32 i = 0; i != pDetails->uFormatCount; i++)
 	{
@@ -563,6 +747,11 @@ b8 lzy_renderer_init()
 	if (!lzy_create_instance())
 		return false;
 
+	#ifdef _DEBUG
+	if(!lzy_create_debug_messenger(&rendererState.debugMessenger))
+		return false;
+	#endif
+
 	if (!lzy_create_surface())
 		return false;
 
@@ -605,7 +794,18 @@ b8 lzy_renderer_init()
 	for (u32 i = 0; i < rendererState.uSwapchainImageCount; i++)
 	{
 		lzy_create_image_view(rendererState.pSwapchainImageViews + i, rendererState.pSwapchainImages[i], rendererState.swapchainImageFormat);
-		lzy_create_framebuffer(rendererState.pSwapchainFramebuffers + i, rendererState.pSwapchainImageViews + i, uWidth, uHeight);
+		lzy_create_framebuffer(rendererState.pSwapchainFramebuffers + i, rendererState.pSwapchainImageViews[i], uWidth, uHeight);
+	}
+
+	if (!lzy_create_shader_module(&rendererState.triangleVertexShader, "shaders/triangle_vs.spv") ||
+		!lzy_create_shader_module(&rendererState.triangleFragmentShader, "shaders/triangle_fs.spv"))
+	{
+		return false;
+	}
+
+	if (!lzy_create_graphics_pipeline(&rendererState.trianglePipeline, rendererState.triangleVertexShader, rendererState.triangleFragmentShader))
+	{
+		return false;
 	}
 
 	VkAllocationCallbacks a;
@@ -642,7 +842,7 @@ b8 lzy_renderer_loop()
 		return false;
 	}
 
-	VkClearColorValue color = {0, 1, 0, 1};
+	VkClearValue clearValue = {.color = {48.0f / 255.0f, 10.0f / 255.0f, 36.0f / 255.0f, 1.0f}};
 
 	VkCommandBufferBeginInfo beginInfo = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
 	beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
@@ -660,14 +860,29 @@ b8 lzy_renderer_loop()
 		.framebuffer = rendererState.pSwapchainFramebuffers[uImageIndex],
 		.renderArea.extent = rendererState.swapchainExtent,
 		.clearValueCount = 1,
-		.pClearValues = &color
-		};
+		.pClearValues = &clearValue};
+
+	u16 uWindowWidth, uWindowHeight;
+	lzy_application_get_framebuffer_size(&uWindowWidth, &uWindowHeight);
+	VkViewport viewport = {
+		.width = (f32)uWindowWidth,
+		.height = (f32)uWindowHeight,
+		.minDepth = 0,
+		.maxDepth = 1};
+
+	VkRect2D scissor = {.offset = {0, 0}, .extent = {uWindowWidth, uWindowHeight}};
 
 	vkCmdBeginRenderPass(rendererState.commandBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
+	vkCmdSetViewport(rendererState.commandBuffer, 0, 1, &viewport);
+	vkCmdSetScissor(rendererState.commandBuffer, 0, 1, &scissor);
+
+	vkCmdBindPipeline(rendererState.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, rendererState.trianglePipeline);
+	vkCmdDraw(rendererState.commandBuffer, 3, 1, 0, 0);
+
 	vkCmdEndRenderPass(rendererState.commandBuffer);
 
-	if(vkEndCommandBuffer(rendererState.commandBuffer) != VK_SUCCESS)
+	if (vkEndCommandBuffer(rendererState.commandBuffer) != VK_SUCCESS)
 	{
 		LCOREFATAL("Could not end command buffer");
 		return false;

@@ -18,6 +18,9 @@ typedef enum LzyMemoryTag
 	LZY_MEMORY_TAG_MAX
 }LzyMemoryTag;
 
+
+
+
 //All LZY_MEMORY_TAG_*_INIT tags are ignored
 typedef struct LzyMemoryConfig
 {
@@ -33,4 +36,4 @@ LAPI void lzy_free(void* ptr, u64 uSize, LzyMemoryTag memTag);
 LAPI void* lzy_memzero(void* ptr, u64 uSize);
 LAPI void* lzy_memset(void* ptr, u8 uVal, u64 uSize);
 LAPI void* lzy_memcpy(void* pDst, void* pSrc, u64 uSize);
-LAPI char* lzy_get_memstats();
+LAPI b8 lzy_get_memstats(char* pBuffer, u64 uBufferCapacity);

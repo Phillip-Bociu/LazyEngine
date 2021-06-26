@@ -226,7 +226,11 @@ b8 lzy_application_run()
                 break;
             }
 
-            lzy_renderer_loop();
+            if(!lzy_renderer_loop())
+            {
+                LCOREFATAL("Rendering error");
+                break;
+            }
         }
 
         uFrameCounter++;

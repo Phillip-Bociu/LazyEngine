@@ -90,8 +90,8 @@ LAPI void lzy_log_user(LzyLogLevel logLevel, const string  pFormat, const string
 #endif
 
 #ifdef LZY_ASSERT_ENABLED
-#define LCOREASSERT(cond, msg) if(cond) {} else LCOREFATAL("(Assertion failed) %s", msg)
-#define LASSERT(cond, msg) if(cond) {} else LFATAL("(Assertion failed) %s", msg)
+#define LCOREASSERT(cond, msg) if(cond) {} else LCOREFATAL("(Assertion failed) " #cond "%s", msg)
+#define LASSERT(cond, msg) if(cond) {} else LFATAL("(Assertion failed) " #cond "%s", msg)
 #else
 #define LCOREASSERT(cond, msg)
 #define LASSERT(cond, msg)

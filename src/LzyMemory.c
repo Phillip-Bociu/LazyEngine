@@ -30,6 +30,20 @@ typedef struct LzyMemory
 
 global LzyMemStats memStats;
 global LzyMemory memory;
+global const string pTagStrings[] = 
+{
+	"Unknown",
+	"Game",
+	"Event System",
+	"Vector",
+	"String",
+	"Application",
+	"Platform State",
+	"Renderer Init",
+	"RendererState"
+};
+
+
 
 b8 lzy_memory_init(const LzyMemoryConfig* pConfig)
 {
@@ -37,25 +51,25 @@ b8 lzy_memory_init(const LzyMemoryConfig* pConfig)
     lzy_platform_memzero(&memStats, sizeof(memStats));
     lzy_platform_memzero(&memory, sizeof(memory));
 
-    memory.uMemorySize = pConfig->uTotalMemorySize;
-    memory.pMemory = lzy_platform_alloc(pConfig->uTotalMemorySize, 8);
-
-    if (!memory.pMemory)
-    {
-        LCOREFATAL("Not enough memory");
-        return false;
-    }
-    memory.ppMemorySections[LZY_MEMORY_TAG_PLATFORM_STATE].pBegin = memory.pMemory;
-    memory.ppMemorySections[LZY_MEMORY_TAG_PLATFORM_STATE].pEnd = memory.pMemory;
-
-    memory.ppMemorySections[LZY_MEMORY_TAG_EVENT_SYSTEM_STATE].pBegin = memory.pMemory;
-    memory.ppMemorySections[LZY_MEMORY_TAG_EVENT_SYSTEM_STATE].pEnd   = (u8*)memory.pMemory + pConfig->pTaggedMemorySize[LZY_MEMORY_TAG_EVENT_SYSTEM_STATE];
-
-    memory.ppMemorySections[LZY_MEMORY_TAG_RENDERER_STATE].pBegin = (u8*)memory.pMemory + pConfig->pTaggedMemorySize[LZY_MEMORY_TAG_EVENT_SYSTEM_STATE];
-    memory.ppMemorySections[LZY_MEMORY_TAG_RENDERER_STATE].pEnd   = (u8*)memory.pMemory + pConfig->pTaggedMemorySize[LZY_MEMORY_TAG_EVENT_SYSTEM_STATE] + pConfig->pTaggedMemorySize[LZY_MEMORY_TAG_RENDERER_STATE];
-
-    memory.ppMemorySections[LZY_MEMORY_TAG_RENDERER_INIT].pBegin = (u8*)memory.pMemory + pConfig->pTaggedMemorySize[LZY_MEMORY_TAG_EVENT_SYSTEM_STATE] + pConfig->pTaggedMemorySize[LZY_MEMORY_TAG_RENDERER_STATE];
-    memory.ppMemorySections[LZY_MEMORY_TAG_RENDERER_INIT].pEnd   = (u8*)memory.pMemory + memory.uMemorySize;
+    //memory.uMemorySize = pConfig->uTotalMemorySize;
+    //memory.pMemory = lzy_platform_alloc(pConfig->uTotalMemorySize, 8);
+//
+    //if (!memory.pMemory)
+    //{
+    //    LCOREFATAL("Not enough memory");
+    //    return false;
+    //}
+    //memory.ppMemorySections[LZY_MEMORY_TAG_PLATFORM_STATE].pBegin = memory.pMemory;
+    //memory.ppMemorySections[LZY_MEMORY_TAG_PLATFORM_STATE].pEnd = memory.pMemory;
+//
+    //memory.ppMemorySections[LZY_MEMORY_TAG_EVENT_SYSTEM_STATE].pBegin = memory.pMemory;
+    //memory.ppMemorySections[LZY_MEMORY_TAG_EVENT_SYSTEM_STATE].pEnd   = (u8*)memory.pMemory + pConfig->pTaggedMemorySize[LZY_MEMORY_TAG_EVENT_SYSTEM_STATE];
+//
+    //memory.ppMemorySections[LZY_MEMORY_TAG_RENDERER_STATE].pBegin = (u8*)memory.pMemory + pConfig->pTaggedMemorySize[LZY_MEMORY_TAG_EVENT_SYSTEM_STATE];
+    //memory.ppMemorySections[LZY_MEMORY_TAG_RENDERER_STATE].pEnd   = (u8*)memory.pMemory + pConfig->pTaggedMemorySize[LZY_MEMORY_TAG_EVENT_SYSTEM_STATE] + pConfig->pTaggedMemorySize[LZY_MEMORY_TAG_RENDERER_STATE];
+//
+    //memory.ppMemorySections[LZY_MEMORY_TAG_RENDERER_INIT].pBegin = (u8*)memory.pMemory + pConfig->pTaggedMemorySize[LZY_MEMORY_TAG_EVENT_SYSTEM_STATE] + pConfig->pTaggedMemorySize[LZY_MEMORY_TAG_RENDERER_STATE];
+    //memory.ppMemorySections[LZY_MEMORY_TAG_RENDERER_INIT].pEnd   = (u8*)memory.pMemory + memory.uMemorySize;
 
     return true;
 }
@@ -122,24 +136,32 @@ internal_func void lzy_get_resulting_bytes(f64* pBytes, u32* pOrder)
 
 }
 
-//TODO
-char* lzy_get_memstats()
+b8 lzy_get_memstats(c8* pBuffer, u64 uBufferCapacity)
 {
-    //char* retval = lzy_alloc(LZY_MEMORY_TAG_MAX * 64, 1, LZY_MEMORY_TAG_STRING);
+    c8* pWrite = pBuffer;
+    u64 uWriteAllocationSize = 0;
+    if(!pBuffer)
+    {
+        pWrite = lzy_alloc(128 * LZY_MEMORY_TAG_MAX * sizeof(c8), 1, LZY_MEMORY_TAG_STRING);
+        uWriteAllocationSize = 128 * LZY_MEMORY_TAG_MAX * sizeof(c8);
+    }
 
-    const char* ppByteAfixes[] = {"B", "KB", "MB", "GB", "TB"};
+    const c8* ppByteAfixes[] = {"B", "KB", "MB", "GB", "TB"};
 
 
     f64 fTotalAllocs = memStats.uTotalAllocs;
     u32 uOrder;
 
     lzy_get_resulting_bytes(&fTotalAllocs, &uOrder);
-    LCOREERROR("Total allocations: %f%s", fTotalAllocs, ppByteAfixes[uOrder]);
+    LCOREINFO("Total allocations: %f%s", fTotalAllocs, ppByteAfixes[uOrder]);
     
-    fTotalAllocs = memStats.uTaggedAllocs[LZY_MEMORY_TAG_RENDERER_INIT];
-    lzy_get_resulting_bytes(&fTotalAllocs, &uOrder);
 
-    LCOREERROR("Renderer Init allocations: %f%s", fTotalAllocs, ppByteAfixes[uOrder]);
+    for(LzyMemoryTag tag = LZY_MEMORY_TAG_UNKNOWN; tag != LZY_MEMORY_TAG_MAX; tag++)
+    {
+        fTotalAllocs = memStats.uTaggedAllocs[LZY_MEMORY_TAG_RENDERER_INIT];
+        lzy_get_resulting_bytes(&fTotalAllocs, &uOrder);
+        LCOREERROR("%s: %f%s",  pTagStrings[tag],fTotalAllocs, ppByteAfixes[uOrder]);
+    }
 
     
     return NULL;
