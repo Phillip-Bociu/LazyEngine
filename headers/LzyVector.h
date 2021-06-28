@@ -1,3 +1,4 @@
+#pragma once
 #include "LzyDefines.h"
 
 
@@ -9,20 +10,26 @@ typedef struct LzyVector
 	u8 pData[];
 }LzyVector;
 
-
-LAPI void* _lzy_vector_create(u64 uCapacity, u64 uStride);
-
-LAPI void* _lzy_vector_init(LzyVector* pVector, u64 uCapacity, u64 uStride);
-
-LAPI void* _lzy_vector_grow(LzyVector* pVector);
-LAPI void* _lzy_vector_reserve(LzyVector* pVector, u64 uDesiredCapacity); 
+LAPI void* _lzy_vector_create(u64 uInitialSize, u64 uStride);
+LAPI void* _lzy_vector_grow_if_needed(LzyVector* pVector);
+LAPI void* _lzy_vector_grow_one(LzyVector* pVector);
+LAPI void* _lzy_vector_reserve(LzyVector* pVector, u64 uMinCap);
 LAPI void _lzy_vector_free(LzyVector* pVector);
 
-#define lzy_vector_create(pVector, uCapacity) pVector = _lzy_vector_create(uCapacity, sizeof(*pVector))
-#define lzy_vector_raw(pVector) ((LzyVector*)((u64*)(pVector) - 3))
-#define lzy_vector_capacity(pVector)(*((u64*)(pVector) - 3)))
-#define lzy_vector_size(pVector)(*((u64*)(pVector) - 2))
-//At least (uCapacity * sizeof(*pVector) + sizeof(LzyVector)) bytes must be allocated at the address pointed to by pVector
-#define lzy_vector_init(pVector, uCapacity) pVector = _lzy_vector_init(pVector, uCapacity, sizeof(*pVector))
-#define lzy_vector_push_back(pVector, x) pVector = _lzy_vector_grow(lzy_vector_raw(pVector));\
-										 pVector[lzy_vector_size(pVector)++] = x
+#define lzy_vector_create(pVec, uInitialSize) pVec = _lzy_vector_create(uInitialSize, sizeof(*pVec))
+
+#define lzy_vector_raw(pVec) ((u64*)pVec - 3)
+#define lzy_vector_capacity(pVec) (*((u64*)pVec - 3))
+#define lzy_vector_size(pVec) (*((u64*)pVec - 2))
+#define lzy_vector_back(pVec) (pVec[lzy_vector_size(pVec)])
+
+#define lzy_vector_push(pVec, element) pVec = _lzy_vector_grow_if_needed((LzyVector*)lzy_vector_raw(pVec)); lzy_vector_back(pVec) = element
+#define lzy_vector_emplace(pVec) pVec = _lzy_vector_grow_one((LzyVector*)lzy_vector_raw(pVec)); pVec[lzy_vector_size(pVec) - 1]
+#define lzy_vector_pop(pVec) lzy_vector_size(pVec)--;
+
+#define lzy_vector_resize(pVec, uNewSize) lzy_vector_size(pVec) = uNewSize; _lzy_vector_grow_if_needed((LzyVector*)lzy_vector_raw(pVec))
+#define lzy_vector_reserve(pVec, uMinCap) pVec = _lzy_vector_reserve((LzyVector*)lzy_vector_raw(pVec), uMinCap);
+
+#define lzy_vector_clear(pVec) lzy_vector_size(pVec) = 0
+#define lzy_vector_free(pVec) _lzy_vector_free(pVec) 
+

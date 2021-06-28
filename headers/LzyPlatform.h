@@ -15,18 +15,24 @@ typedef VkWin32SurfaceCreateInfoKHR LzyWindowSurfaceCreateInfo;
 
 MAKE_PLATFORM_INDEPENDENT_HANDLE(LzyPlatform);
 
+//TODO comment every user function
+
 b8 lzy_platform_create(LzyPlatform* pPlatform, const char* pWindowTitle,u16 uResX, u16 uResY);
+void lzy_platform_shutdown(LzyPlatform platform);
 b8 lzy_platform_poll_events(LzyPlatform platform);
+void lzy_platform_sleep(u64 uMs);
+
 void lzy_platform_get_surface_create_info(LzyPlatform platform, LzyWindowSurfaceCreateInfo* pSurface);
 VkResult lzy_platform_create_surface(VkInstance instance, const LzyWindowSurfaceCreateInfo* pCreateInfo, const VkAllocationCallbacks* pAllocs, VkSurfaceKHR* pSurface);
 void lzy_platform_get_framebuffer_size(LzyPlatform platform, u16* pX, u16* pY);
-void lzy_platform_shutdown(LzyPlatform platform);
+
 void* lzy_platform_alloc(u64 uSize, u8 uAlignment);
 void lzy_platform_free(void* ptr, u64 uSize, u8 uAlignment);
 void* lzy_platform_memcpy(void* pDst, void* pSrc, u64 uSize);
 void* lzy_platform_memset(void* pDst, u8 uVal, u64 uSize);
 void* lzy_platform_memzero(void* pDst, u64 uSize);
-void lzy_platform_sleep(u64 uMs);
+void* lzy_platform_realloc(void* ptr, u64 uSize);
+
 f64 lzy_platform_get_time();
 u16 lzy_platform_get_number_of_threads();
 u64 lzy_platform_get_implementation_size();

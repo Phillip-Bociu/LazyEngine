@@ -96,6 +96,22 @@ void* lzy_alloc(u64 uSize, u8 uAlignment, LzyMemoryTag memTag)
     return retval;
 }
 
+void* lzy_realloc(void* ptr, u64 uOldSize, u64 uNewSize, u8 uAlignment, LzyMemoryTag memTag)
+{
+    if(memTag == LZY_MEMORY_TAG_UNKNOWN)
+    {
+        LCOREWARN("Untagged memory allocation!");
+    }
+
+    memStats.uTotalAllocs += (i64)(uNewSize - uOldSize);
+    memStats.uTaggedAllocs[memTag] += (i64)(uNewSize - uOldSize);
+
+    void* retval = lzy_platform_realloc(ptr, uNewSize);
+    LCOREASSERT(retval != NULL, "Out of Memory.");
+    lzy_platform_memzero(retval, uNewSize);
+    return retval;
+}
+
 void lzy_free(void* ptr, u64 uSize, LzyMemoryTag memTag)
 {
     if(memTag == LZY_MEMORY_TAG_UNKNOWN)
@@ -138,6 +154,7 @@ internal_func void lzy_get_resulting_bytes(f64* pBytes, u32* pOrder)
 
 b8 lzy_get_memstats(c8* pBuffer, u64 uBufferCapacity)
 {
+    
     c8* pWrite = pBuffer;
     u64 uWriteAllocationSize = 0;
     if(!pBuffer)
@@ -166,4 +183,3 @@ b8 lzy_get_memstats(c8* pBuffer, u64 uBufferCapacity)
     
     return NULL;
 }
-

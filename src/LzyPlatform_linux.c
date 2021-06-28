@@ -10,6 +10,8 @@
 #include <sys/time.h>
 #include <unistd.h>
 #include <sys/mman.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 #include<sys/sysinfo.h>
 
 #include <string.h>
@@ -226,6 +228,8 @@ b8 lzy_platform_poll_events(LzyPlatform platform)
 	return bShouldClose;
 }
 
+
+
 f64 lzy_platform_get_time()
 {
 	struct timeval t;
@@ -251,7 +255,7 @@ void lzy_platform_sleep(u64 uMs)
 
 void *lzy_platform_alloc(u64 uSize, u8 uAlignment)
 {
-	return mmap(NULL, uSize, PROT_WRITE | PROT_READ, MAP_PRIVATE | MAP_ANON, -1, 0);
+	return malloc(uSize);
 }
 
 u16 lzy_platform_get_number_of_threads()
@@ -261,7 +265,12 @@ u16 lzy_platform_get_number_of_threads()
 
 void lzy_platform_free(void* ptr, u64 uSize, u8 uAlignment)
 {
-	munmap(ptr, uSize);
+	free(uSize);
+}
+
+void* lzy_platform_realloc(void* ptr, u64 uSize)
+{
+	return realloc(ptr, uSize);
 }
 
 void *lzy_platform_memcpy(void *pDst, void *pSrc, u64 uSize)

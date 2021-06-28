@@ -3,6 +3,7 @@
 #include "LzyRenderer.h"
 #include "LzyApplication.h"
 #include "LzyMemory.h"
+#include "LzyFile.h"
 #include <vulkan/vulkan.h>
 #include <string.h>
 #include <stdlib.h>
@@ -144,14 +145,15 @@ internal_func b8 lzy_create_graphics_pipeline(VkPipeline *pPipeline, VkShaderMod
 
 internal_func b8 lzy_create_shader_module(VkShaderModule *pShaderModule, const c8 *pShaderPath)
 {
-	FILE *pFile = fopen(pShaderPath, "rb");
-	fseek(pFile, 0, SEEK_END);
-	u64 uFileSize = ftell(pFile);
-	fseek(pFile, 0, SEEK_SET);
-
-	u32 *pBuffer = lzy_alloc(uFileSize, 4, LZY_MEMORY_TAG_STRING);
-	u64 uBytesRead = sizeof(u32) * fread(pBuffer, sizeof(u32), uFileSize / sizeof(u32), pFile);
-	if (uBytesRead != uFileSize)
+	LzyFile file;
+	if(!lzy_file_open(&file, pShaderPath, LZY_FILE_MODE_READ | LZY_FILE_MODE_BINARY))
+	{
+		return false;
+	}
+	u64 uFileSize;
+	u32* pBuffer = lzy_file_map(file, &uFileSize);
+	
+	if ((u64)pBuffer == ~0ull)
 	{
 		LCOREFATAL("Could not read shader file %s", pShaderPath);
 		return false;
@@ -169,7 +171,8 @@ internal_func b8 lzy_create_shader_module(VkShaderModule *pShaderModule, const c
 		return false;
 	}
 
-	lzy_free(pBuffer, uFileSize, LZY_MEMORY_TAG_STRING);
+	lzy_file_unmap(file, pBuffer);
+	lzy_file_close(file);
 	return true;
 }
 
@@ -255,12 +258,28 @@ internal_func b8 lzy_check_device_extension_support(VkPhysicalDevice physicalDev
 	return true;
 }
 
-//TODO improve this
+internal_func VkImageMemoryBarrier lzy_create_image_memory_barrier(VkImage image, VkAccessFlags accessMaskSrc, VkAccessFlags accessMaskDst, VkImageLayout imageLayoutOld, VkImageLayout imageLayoutNew)
+{
+	VkImageMemoryBarrier retval = {VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
+
+	retval.srcAccessMask = accessMaskSrc;
+    retval.dstAccessMask = accessMaskDst;
+    retval.oldLayout = imageLayoutOld;
+    retval.newLayout = imageLayoutNew;
+    retval.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    retval.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    retval.image = image;
+    retval.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	retval.subresourceRange.levelCount = VK_REMAINING_MIP_LEVELS;
+	retval.subresourceRange.layerCount = VK_REMAINING_ARRAY_LAYERS;
+
+	return retval;
+}
+
 internal_func b8 lzy_is_device_suitable(VkPhysicalDevice physicalDevice, const char **ppExtensionNames, u16 uNameCount, LzySwapchainSupportDetails *pDetails)
 {
 
 	VkPhysicalDeviceProperties props;
-	//VkPhysicalDeviceFeatures feats;
 	vkGetPhysicalDeviceProperties(physicalDevice, &props);
 	if (props.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU || props.deviceType == VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU)
 	{
@@ -270,7 +289,7 @@ internal_func b8 lzy_is_device_suitable(VkPhysicalDevice physicalDevice, const c
 			if (details.uFormatCount != 0 && details.uPresentModeCount != 0)
 			{
 				*pDetails = details;
-				LCOREERROR("Picking physical device: %s", props.deviceName);
+				LCOREINFO("Picking physical device: %s", props.deviceName);
 				return true;
 			}
 		}
@@ -588,9 +607,9 @@ internal_func b8 lzy_create_swapchain(VkSwapchainKHR *pSwapchain, LzyQueueFamily
 
 	for (u32 i = 0; i != pDetails->uPresentModeCount; i++)
 	{
-		if (pDetails->pPresentModes[i] == VK_PRESENT_MODE_MAILBOX_KHR)
+		if (pDetails->pPresentModes[i] == VK_PRESENT_MODE_IMMEDIATE_KHR)
 		{
-			chosenPresentMode = VK_PRESENT_MODE_MAILBOX_KHR;
+			chosenPresentMode = pDetails->pPresentModes[i];
 			break;
 		}
 	}
@@ -830,7 +849,7 @@ b8 lzy_renderer_loop()
 {
 	u32 uImageIndex = 0;
 
-	if (vkAcquireNextImageKHR(rendererState.device, rendererState.swapchain, (u64)-1, rendererState.acquireSemaphore, VK_NULL_HANDLE, &uImageIndex) != VK_SUCCESS)
+	if (vkAcquireNextImageKHR(rendererState.device, rendererState.swapchain, ~0ull, rendererState.acquireSemaphore, VK_NULL_HANDLE, &uImageIndex) != VK_SUCCESS)
 	{
 		LCOREFATAL("Could not acquire image index");
 		return false;
@@ -853,6 +872,13 @@ b8 lzy_renderer_loop()
 	range.layerCount = 1;
 
 	vkBeginCommandBuffer(rendererState.commandBuffer, &beginInfo);
+	VkImageMemoryBarrier rendererBeginBarrier = lzy_create_image_memory_barrier(rendererState.pSwapchainImages[uImageIndex], 0, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+	vkCmdPipelineBarrier(
+	rendererState.commandBuffer,
+	VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 
+	VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+	VK_DEPENDENCY_BY_REGION_BIT,
+	0,NULL, 0, NULL, 1, &rendererBeginBarrier);
 
 	VkRenderPassBeginInfo renderPassBeginInfo = {
 		.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
@@ -861,6 +887,8 @@ b8 lzy_renderer_loop()
 		.renderArea.extent = rendererState.swapchainExtent,
 		.clearValueCount = 1,
 		.pClearValues = &clearValue};
+
+
 
 	u16 uWindowWidth, uWindowHeight;
 	lzy_application_get_framebuffer_size(&uWindowWidth, &uWindowHeight);
@@ -881,6 +909,14 @@ b8 lzy_renderer_loop()
 	vkCmdDraw(rendererState.commandBuffer, 3, 1, 0, 0);
 
 	vkCmdEndRenderPass(rendererState.commandBuffer);
+
+	VkImageMemoryBarrier renderEndBarrier = lzy_create_image_memory_barrier(rendererState.pSwapchainImages[uImageIndex], VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, 0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+	vkCmdPipelineBarrier(
+	rendererState.commandBuffer,
+	VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 
+	VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+	VK_DEPENDENCY_BY_REGION_BIT,
+	0,NULL, 0, NULL, 1, &renderEndBarrier);
 
 	if (vkEndCommandBuffer(rendererState.commandBuffer) != VK_SUCCESS)
 	{

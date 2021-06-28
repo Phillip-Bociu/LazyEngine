@@ -110,7 +110,7 @@ b8 lzy_application_create(LzyGame* pGame)
 
 
     //Subsystem Initializations
-#if 1
+#if 0
 
     b8 bEventInitialized;
     b8 bRendererInitialized;
@@ -200,8 +200,11 @@ b8 lzy_application_run()
 {
     f64 fTime = 0.0;
     u64 uFrameCounter = 0;
+    f64 fFrameStartTime = 0.0;
+    f64 fFrameDuration = 0.0;
     while (lzyApp.bIsRunning)
     {
+        fFrameStartTime = lzy_platform_get_time();
         lzy_time_step(&lzyApp.clock);
         fTime += lzy_time_get_deltatime(lzyApp.clock);
         if (fTime >= 1.0)
@@ -234,7 +237,9 @@ b8 lzy_application_run()
         }
 
         uFrameCounter++;
-        
+        fFrameDuration = lzy_platform_get_time() - fFrameStartTime;
+        //LCOREINFO("Sleep Time: %f", max((1.0/60.0 - fFrameDuration) * 1000.0, 0.0));
+        lzy_platform_sleep(max((1.0/60.0 - fFrameDuration) * 1000.0, 0.0));
     }
 
     lzyApp.bIsRunning = false;

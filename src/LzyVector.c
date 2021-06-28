@@ -2,58 +2,62 @@
 #include "LzyMemory.h"
 #include <stdlib.h>
 
-void* _lzy_vector_create(u64 uCapacity, u64 uStride)
+void* _lzy_vector_create(u64 uInitialSize, u64 uStride)
 {
-	LzyVector* pVector = lzy_alloc(sizeof(LzyVector) + uCapacity * uStride, 8, LZY_MEMORY_TAG_VECTOR);
-	pVector->uCapacity = uCapacity;
+	LzyVector* pVector = lzy_alloc(sizeof(LzyVector) + uInitialSize * uStride, 8, LZY_MEMORY_TAG_VECTOR);
+
+	if(!pVector)
+	{
+		LCOREERROR("Could not create vector");
+		return NULL;
+	}
+
+	pVector->uCapacity = uInitialSize;
+	pVector->uSize = uInitialSize;
 	pVector->uStride = uStride;
+
 	return pVector->pData;
 }
 
-void* _lzy_vector_init(LzyVector* pVector, u64 uCapacity, u64 uStride)
+void* _lzy_vector_grow_if_needed(LzyVector* pVector)
 {
-	pVector->uCapacity = uCapacity;
-	pVector->uStride = uStride;
-	pVector->uSize = 0;
+	if(pVector->uCapacity <= pVector->uSize)
+	{
+		u64 uNewCap = max(pVector->uSize, pVector->uCapacity * 2);
+		LzyVector* pNewVec = lzy_realloc(pVector, pVector->uCapacity * pVector->uStride + sizeof(LzyVector), uNewCap * pVector->uStride + sizeof(LzyVector), LZY_MEMORY_TAG_VECTOR);
+		if(!pNewVec)
+		{
+			LCOREERROR("Could not realloc vector while growing");
+			return NULL;
+		}
+		pNewVec->uCapacity = uNewCap;
+		pVector = pNewVec;
+	}
 	return pVector->pData;
 }
-
-void* _lzy_vector_emplace_back(LzyVector* pVector, u64 uElementCount)
+void* _lzy_vector_grow_one(LzyVector* pVector)
 {
-	void* retval = &pVector->pData[pVector->uStride * (pVector->uSize)];
-	pVector->uSize += uElementCount;
-	return retval;
+	pVector->uSize++;
+	return _lzy_vector_grow_if_needed(pVector);
 }
-
-void* _lzy_vector_grow(LzyVector* pVector)
+void* _lzy_vector_reserve(LzyVector* pVector, u64 uMinCap)
 {
-	if (pVector->uSize == pVector->uCapacity)
+	if(pVector->uCapacity < uMinCap)
 	{
-		LzyVector* pNewVector = lzy_alloc((pVector->uCapacity << 1) * pVector->uStride + sizeof(LzyVector), 8, LZY_MEMORY_TAG_VECTOR);
-		lzy_memcpy(pNewVector, pVector, pVector->uSize * pVector->uStride + sizeof(LzyVector));
-		lzy_free(pVector, pVector->uCapacity * pVector->uStride + sizeof(LzyVector), LZY_MEMORY_TAG_VECTOR);
-		return pNewVector->pData;
+		LzyVector* pNewVec = lzy_realloc(pVector, pVector->uCapacity * pVector->uStride + sizeof(LzyVector), uMinCap * pVector->uStride + sizeof(LzyVector), LZY_MEMORY_TAG_VECTOR);
+		if(!pNewVec)
+		{
+			LCOREERROR("Could not realloc vector while reserving");
+			return NULL;
+		}
+		pNewVec->uCapacity = uMinCap;
+		pVector = pNewVec;
 	}
-	else
-	{
-		return pVector->pData;
-	}
-}
 
-void* _lzy_vector_reserve(LzyVector* pVector, u64 uDesiredCapacity)
-{
-	if (pVector->uCapacity < uDesiredCapacity)
-	{
-		LzyVector* pNewVector = lzy_alloc(uDesiredCapacity * pVector->uStride + sizeof(LzyVector), 8, LZY_MEMORY_TAG_VECTOR);
-		lzy_memcpy(pNewVector, pVector, pVector->uSize * pVector->uStride + sizeof(LzyVector));
-		lzy_free(pVector, pVector->uCapacity * pVector->uStride + sizeof(LzyVector), LZY_MEMORY_TAG_VECTOR);
-		pVector = pNewVector;
-	}
-	return pVector;
+	return pVector->pData;
 }
 
 void _lzy_vector_free(LzyVector* pVector)
 {
 	lzy_free(pVector, pVector->uCapacity * pVector->uStride + sizeof(LzyVector), LZY_MEMORY_TAG_VECTOR);
 }
-
