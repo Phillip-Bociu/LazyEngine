@@ -186,22 +186,22 @@ b8 lzy_platform_poll_events(LzyPlatform platform)
 		{
 		case XCB_KEY_PRESS:
 		{
-			LINFO("%s", "Key Pressed");
+			LCOREINFO("%s", "Key Pressed");
 		}
 		break;
 		case XCB_KEY_RELEASE:
 		{
-			LINFO("%s", "Key Released");
+			LCOREINFO("%s", "Key Released");
 		}
 		break;
 		case XCB_BUTTON_PRESS:
 		{
-			LINFO("%s", "Button Pressed");
+			LCOREINFO("%s", "Button Pressed");
 		}
 		break;
 		case XCB_BUTTON_RELEASE:
 		{
-			LINFO("%s", "Button Released");
+			LCOREINFO("%s", "Button Released");
 		}
 		break;
 		case XCB_MOTION_NOTIFY:

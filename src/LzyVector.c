@@ -24,7 +24,7 @@ void* _lzy_vector_grow_if_needed(LzyVector* pVector)
 	if(pVector->uCapacity <= pVector->uSize)
 	{
 		u64 uNewCap = max(pVector->uSize, pVector->uCapacity * 2);
-		LzyVector* pNewVec = lzy_realloc(pVector, pVector->uCapacity * pVector->uStride + sizeof(LzyVector), uNewCap * pVector->uStride + sizeof(LzyVector), LZY_MEMORY_TAG_VECTOR);
+		LzyVector* pNewVec = lzy_realloc(pVector, pVector->uCapacity * pVector->uStride + sizeof(LzyVector), uNewCap * pVector->uStride + sizeof(LzyVector), 8, LZY_MEMORY_TAG_VECTOR);
 		if(!pNewVec)
 		{
 			LCOREERROR("Could not realloc vector while growing");
@@ -44,7 +44,7 @@ void* _lzy_vector_reserve(LzyVector* pVector, u64 uMinCap)
 {
 	if(pVector->uCapacity < uMinCap)
 	{
-		LzyVector* pNewVec = lzy_realloc(pVector, pVector->uCapacity * pVector->uStride + sizeof(LzyVector), uMinCap * pVector->uStride + sizeof(LzyVector), LZY_MEMORY_TAG_VECTOR);
+		LzyVector* pNewVec = lzy_realloc(pVector, pVector->uCapacity * pVector->uStride + sizeof(LzyVector), uMinCap * pVector->uStride + sizeof(LzyVector), 8, LZY_MEMORY_TAG_VECTOR);
 		if(!pNewVec)
 		{
 			LCOREERROR("Could not realloc vector while reserving");

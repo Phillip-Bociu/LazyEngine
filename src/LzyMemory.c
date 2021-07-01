@@ -108,7 +108,7 @@ void* lzy_realloc(void* ptr, u64 uOldSize, u64 uNewSize, u8 uAlignment, LzyMemor
 
     void* retval = lzy_platform_realloc(ptr, uNewSize);
     LCOREASSERT(retval != NULL, "Out of Memory.");
-    lzy_platform_memzero(retval, uNewSize);
+    lzy_platform_memzero(retval + uOldSize, (i64)(uNewSize - uOldSize));
     return retval;
 }
 

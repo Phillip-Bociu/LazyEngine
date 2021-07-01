@@ -3,13 +3,13 @@
 #include "LzyApplication.h"
 #include "LzyLog.h"
 #include "LzyGame.h"
+#include "LzyVector.h"
 #include <string.h>
 
 extern b8 create_game(LzyGame *pGame);
 
 int main()
 {
-
     LzyGame game = {0};
 
     if (!create_game(&game))

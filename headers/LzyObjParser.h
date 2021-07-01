@@ -4,11 +4,18 @@
 
 //TODO create fobj format (metadata at start for no reallocations)
 //A collection of LzyVector pointers
+
+typedef struct LzyObjVertex
+{
+	f32 fPosX, fPosY, fPosZ;
+	f32 fU, fV;
+	f32 fNormalX, fNormalY, fNormalZ;
+}LzyObjVertex;
+
 typedef struct LzyObjContents
 {
-	f32* pPositions;
-	f32* pTextureCoords;
-	f32* pNormals;
+	LzyObjVertex* pVertices;
+	u32* pIndices;
 }LzyObjContents;
 
 

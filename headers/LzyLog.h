@@ -43,7 +43,7 @@ LAPI void lzy_log_user(LzyLogLevel logLevel, const string  pFormat, const string
 #define LINFO(format, ...) lzy_log_user(LZY_LOG_LEVEL_INFO, format, __FILE__, __LINE__, __VA_ARGS__)
 #else
 #define LCOREINFO(format, ...) lzy_log_core(LZY_LOG_LEVEL_INFO, format, __FILE__, __LINE__ __VA_OPT__(,) __VA_ARGS__)
-#define LINFO(format, ...) lzy_log_core(LZY_LOG_LEVEL_INFO, format, __FILE__, __LINE__ __VA_OPT__(,) __VA_ARGS__)
+#define LINFO(format, ...) lzy_log_user(LZY_LOG_LEVEL_INFO, format, __FILE__, __LINE__ __VA_OPT__(,) __VA_ARGS__)
 #endif
 #else
 #define LCOREINFO(format, ...)

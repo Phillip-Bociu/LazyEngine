@@ -202,7 +202,7 @@ b8 lzy_application_run()
     u64 uFrameCounter = 0;
     f64 fFrameStartTime = 0.0;
     f64 fFrameDuration = 0.0;
-    while (lzyApp.bIsRunning)
+    while (true)
     {
         fFrameStartTime = lzy_platform_get_time();
         lzy_time_step(&lzyApp.clock);
@@ -214,6 +214,9 @@ b8 lzy_application_run()
             uFrameCounter = 0;
         }
         lzyApp.bIsRunning = !lzy_platform_poll_events(lzyApp.platform);
+
+        if(!lzyApp.bIsRunning)
+            break;
         
         if(!lzyApp.bIsSuspended)
         {
