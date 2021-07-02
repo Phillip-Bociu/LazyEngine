@@ -21,7 +21,7 @@ LAPI void _lzy_vector_free(LzyVector* pVector);
 #define lzy_vector_raw(pVec) ((u64*)pVec - 3)
 #define lzy_vector_capacity(pVec) (*((u64*)pVec - 3))
 #define lzy_vector_size(pVec) (*((u64*)pVec - 2))
-#define lzy_vector_back(pVec) (pVec[lzy_vector_size(pVec)])
+#define lzy_vector_back(pVec) (pVec[lzy_vector_size(pVec) - 1])
 
 #define lzy_vector_push(pVec, element) pVec = _lzy_vector_grow_if_needed((LzyVector*)lzy_vector_raw(pVec)); lzy_vector_back(pVec) = element
 #define lzy_vector_emplace(pVec) pVec = _lzy_vector_grow_one((LzyVector*)lzy_vector_raw(pVec)); pVec[lzy_vector_size(pVec) - 1]
@@ -31,5 +31,5 @@ LAPI void _lzy_vector_free(LzyVector* pVector);
 #define lzy_vector_reserve(pVec, uMinCap) pVec = _lzy_vector_reserve((LzyVector*)lzy_vector_raw(pVec), uMinCap);
 
 #define lzy_vector_clear(pVec) lzy_vector_size(pVec) = 0
-#define lzy_vector_free(pVec) _lzy_vector_free(pVec) 
+#define lzy_vector_free(pVec) _lzy_vector_free(lzy_vector_raw(pVec)) 
 

@@ -77,10 +77,10 @@ internal_func u64 lzy_obj_hash_map_find(LzyObjHashMap* pHashMap, u64 uKey[3])
 		{
 			uRetval = uIndex * 16 + __builtin_ffs(iCmpRes) - 1;
 			break;
+		} else
+		{
+			return (~0ull);
 		}
-		uIndex++;
-		if(uIndex >= pHashMap->uCapacity)
-			return ~0ull;
 	}while(true);
 
 	do
@@ -175,7 +175,7 @@ internal_func b8 lzy_char_is_endofline(c8 c)
 	return c == '\r' || c == '\n' || c == '\t';
 }
 
-internal_func c8 *lzy_parse_triangle(const c8 *pIter, LzyObjHashMap* pHashMap, LzyObjVertex *pVertices,u32* pIndices, const f32 *pPositions, const f32 *pTextureCoords, const f32 *pNormals)
+internal_func c8 *lzy_parse_triangle(c8 *pIter, LzyObjHashMap* pHashMap, LzyObjVertex *pVertices,u32* pIndices, const f32 *pPositions, const f32 *pTextureCoords, const f32 *pNormals)
 {
 
 	u64 uKey[3];
@@ -303,12 +303,12 @@ internal_func c8 *lzy_parse_normals(const c8 *pIter, f32 *pNormals)
 	return pIter;
 }
 
-internal_func c8 *lzy_next_line(const c8 *pIter)
+internal_func c8 *lzy_next_line(const c8 *pIter, const c8* const pEnd)
 {
 	while (*pIter != NULL)
 		pIter++;
 
-	while (*pIter == NULL)
+	while (*pIter == NULL && pIter != pEnd)
 		pIter++;
 
 	return pIter;
@@ -354,31 +354,59 @@ b8 lzy_obj_load_file(LzyFile file, LzyObjContents *pContents)
 	lzy_file_read(file, pFileContents, uFileSize);
 	pFileContents[uFileSize] = NULL;
 
-	strtok(pFileContents, "\r\n");
+	c8* pSave;
+	c8 *pIter = strtok_r(pFileContents, "\r\n", &pSave);
 
-	c8 *pIter = pFileContents;
 	const c8 *const pEnd = pFileContents + uFileSize + 1;
 
-	for (; pIter != pEnd; pIter = lzy_next_line(pIter))
+	u32 line = 1;
+
+	for (; pIter != NULL; line++, pIter = strtok_r(NULL, "\r\n", &pSave))
 	{
+		
+
+		if(lzy_vector_size(pPositions) == 126)
+		{
+			LINFO("Crash?");
+		}
+
+		if(line == 44)
+		{
+			LINFO("Gonna break");
+		}
 		if (*pIter == 'v')
 		{
 			switch (*(pIter + 1))
 			{
 			case ' ':
 			{
+				LTRACE("Pos Size:%llu", lzy_vector_size(pPositions));
+				LTRACE("Pos Cap :%llu", lzy_vector_capacity(pPositions));
+
+				if(lzy_vector_capacity(pPositions) - lzy_vector_size(pPositions) <= 3)
+					lzy_vector_reserve(pPositions, lzy_vector_capacity(pPositions) * 2);
 				pIter = lzy_parse_position(pIter + 2, pPositions);
 			}
 			break;
 
 			case 't':
 			{
+				LTRACE("Tex Size:%llu", lzy_vector_size    (pTextureCoords));
+				LTRACE("Tex Cap :%llu", lzy_vector_capacity(pTextureCoords));
+
+				if(lzy_vector_capacity(pTextureCoords) - lzy_vector_size(pTextureCoords) <= 3)
+					lzy_vector_reserve(pTextureCoords, lzy_vector_capacity(pTextureCoords) * 2);
 				pIter = lzy_parse_texture_coords(pIter + 3, pTextureCoords);
 			}
 			break;
 
 			case 'n':
 			{
+				LTRACE("Normals Size:%llu", lzy_vector_size	   (pNormals));
+				LTRACE("Normals Cap :%llu", lzy_vector_capacity(pNormals));
+
+				if(lzy_vector_capacity(pNormals) - lzy_vector_size(pNormals) <= 3)
+					lzy_vector_reserve(pNormals, lzy_vector_capacity(pNormals) * 2);
 				pIter = lzy_parse_normals(pIter + 3, pNormals);
 			}
 			break;
@@ -394,10 +422,15 @@ b8 lzy_obj_load_file(LzyFile file, LzyObjContents *pContents)
 
 	lzy_obj_hash_map_create(&hashMap, lzy_vector_size(pPositions) + lzy_vector_size(pPositions) / 2);
 
-	for (; pIter != pEnd; pIter = lzy_next_line(pIter))
+	for (; pIter != NULL; pIter = strtok_r(NULL, "\r\n", &pSave))
 	{
 		if (*pIter == 'f')
 		{
+			if(lzy_vector_capacity(pContents->pVertices) - lzy_vector_size   (pContents->pVertices) <= 3)
+				lzy_vector_reserve(pContents->pVertices, lzy_vector_capacity (pContents->pVertices) * 2);
+
+			if(lzy_vector_capacity(pContents->pIndices) - lzy_vector_size    (pContents->pIndices) <= 3)
+				lzy_vector_reserve(pContents->pIndices,   lzy_vector_capacity(pContents->pIndices) * 2);
 			pIter = lzy_parse_triangle(pIter + 2, &hashMap, pContents->pVertices, pContents->pIndices, pPositions, pTextureCoords, pNormals);
 		}
 	}
@@ -409,4 +442,10 @@ b8 lzy_obj_load_file(LzyFile file, LzyObjContents *pContents)
 	lzy_free(hashMap.pMeta, hashMap.uCapacity, LZY_MEMORY_TAG_VECTOR);
 	lzy_free(hashMap.pMap, hashMap.uCapacity * sizeof(LzyObjKeyValue), LZY_MEMORY_TAG_VECTOR);
 	return true;
+}
+
+void lzy_obj_free(LzyObjContents* pContents)
+{
+	lzy_vector_free(pContents->pIndices);
+	lzy_vector_free(pContents->pVertices);
 }

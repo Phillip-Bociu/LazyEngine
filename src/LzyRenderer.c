@@ -1,5 +1,7 @@
 #include <assert.h>
+#include "LzyVector.h"
 #include "LzyLog.h"
+#include "LzyObjParser.h"
 #include "LzyRenderer.h"
 #include "LzyApplication.h"
 #include "LzyMemory.h"
@@ -23,6 +25,14 @@ typedef struct LzySwapchainSupportDetails
 	u32 uPresentModeCount;
 	VkSurfaceCapabilitiesKHR surfaceCapabilities;
 } LzySwapchainSupportDetails;
+
+typedef struct LzyVulkanBuffer
+{
+	VkBuffer buffer;
+	void *pData;
+	u64 uSize;
+	VkDeviceMemory memory;
+} LzyVulkanBuffer;
 
 typedef struct LzyRendererState
 {
@@ -48,10 +58,81 @@ typedef struct LzyRendererState
 	VkShaderModule triangleFragmentShader;
 	VkPipeline trianglePipeline;
 	VkDebugReportCallbackEXT debugMessenger;
+	LzyVulkanBuffer vertexBuffer;
+	LzyVulkanBuffer indexBuffer;
 } LzyRendererState;
 
 global b8 bIsInitialized = false;
 global LzyRendererState rendererState;
+
+internal_func u32 lzy_select_memory_type_bits(const VkPhysicalDeviceMemoryProperties *pMemoryProps, u32 uMemoryTypeBits, VkMemoryPropertyFlags flags)
+{
+	for (u32 i = 0; i < pMemoryProps->memoryTypeCount; i++)
+	{
+		if ((uMemoryTypeBits & (1 << i)) && (pMemoryProps->memoryTypes[i].propertyFlags & flags) == flags)
+		{
+			return i;
+		}
+	}
+
+	return ~0u;
+}
+
+internal_func b8 lzy_create_buffer(LzyVulkanBuffer *pBuffer, const VkPhysicalDeviceMemoryProperties *pMemoryProps, u64 uSize, VkBufferUsageFlags usage)
+{
+	VkBufferCreateInfo createInfo = {
+		.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+		.size = uSize,
+		.usage = usage};
+
+	if (vkCreateBuffer(rendererState.device, &createInfo, NULL, &pBuffer->buffer) != VK_SUCCESS)
+	{
+		LCOREFATAL("Could not create vulkan buffer");
+		return false;
+	}
+
+	VkMemoryRequirements memReq;
+	vkGetBufferMemoryRequirements(rendererState.device, pBuffer->buffer, &memReq);
+
+	u32 uMemoryTypeIndex = lzy_select_memory_type_bits(pMemoryProps, memReq.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+	if (uMemoryTypeIndex == ~0u)
+	{
+		LCOREFATAL("Could not find memory type index");
+		return false;
+	}
+
+	VkMemoryAllocateInfo allocInfo = {
+		.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+		.allocationSize = memReq.size,
+		.memoryTypeIndex = uMemoryTypeIndex};
+
+	if (vkAllocateMemory(rendererState.device, &allocInfo, NULL, &pBuffer->memory) != VK_SUCCESS)
+	{
+		LCOREFATAL("Could not allocate device buffer memory");
+		return false;
+	}
+
+	if (vkBindBufferMemory(rendererState.device, pBuffer->buffer, pBuffer->memory, 0) != VK_SUCCESS)
+	{
+		LCOREFATAL("Could not bind buffer memory");
+		return false;
+	}
+
+	if (vkMapMemory(rendererState.device, pBuffer->memory, 0, uSize, 0, &pBuffer->pData) != VK_SUCCESS)
+	{
+		LCOREFATAL("Could not map device memory");
+		return false;
+	}
+
+	pBuffer->uSize = uSize;
+	return true;
+}
+
+internal_func void lzy_destroy_buffer(LzyVulkanBuffer *pBuffer)
+{
+	vkFreeMemory(rendererState.device, pBuffer->memory, NULL);
+}
 
 internal_func b8 lzy_create_graphics_pipeline_layout(VkPipelineLayout *pLayout)
 {
@@ -95,6 +176,26 @@ internal_func b8 lzy_create_graphics_pipeline(VkPipeline *pPipeline, VkShaderMod
 	VkPipelineVertexInputStateCreateInfo inputStateCreateInfo = {VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO};
 
 	createInfo.pVertexInputState = &inputStateCreateInfo;
+
+	VkVertexInputBindingDescription stream = {0, 8 * 4, VK_VERTEX_INPUT_RATE_VERTEX};
+	VkVertexInputAttributeDescription attrs[3] = {0};
+
+	attrs[0].location = 0;
+	attrs[0].format = VK_FORMAT_R32G32B32A32_SFLOAT;
+	attrs[0].offset = 0;
+
+	attrs[1].location = 1;
+	attrs[1].format = VK_FORMAT_R32G32B32A32_SFLOAT;
+	attrs[1].offset = 12;
+
+	attrs[2].location = 2;
+	attrs[2].format = VK_FORMAT_R32G32B32A32_SFLOAT;
+	attrs[2].offset = 20;
+
+	inputStateCreateInfo.vertexBindingDescriptionCount = 1;
+	inputStateCreateInfo.pVertexBindingDescriptions = &stream;
+	inputStateCreateInfo.vertexAttributeDescriptionCount = 3;
+	inputStateCreateInfo.pVertexAttributeDescriptions = attrs;
 
 	VkPipelineInputAssemblyStateCreateInfo inputAssemblyCreateInfo = {VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO};
 	inputAssemblyCreateInfo.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
@@ -146,13 +247,13 @@ internal_func b8 lzy_create_graphics_pipeline(VkPipeline *pPipeline, VkShaderMod
 internal_func b8 lzy_create_shader_module(VkShaderModule *pShaderModule, const c8 *pShaderPath)
 {
 	LzyFile file;
-	if(!lzy_file_open(&file, pShaderPath, LZY_FILE_MODE_READ | LZY_FILE_MODE_BINARY))
+	if (!lzy_file_open(&file, pShaderPath, LZY_FILE_MODE_READ | LZY_FILE_MODE_BINARY))
 	{
 		return false;
 	}
 	u64 uFileSize;
-	u32* pBuffer = lzy_file_map(file, &uFileSize);
-	
+	u32 *pBuffer = lzy_file_map(file, &uFileSize);
+
 	if ((u64)pBuffer == ~0ull)
 	{
 		LCOREFATAL("Could not read shader file %s", pShaderPath);
@@ -263,13 +364,13 @@ internal_func VkImageMemoryBarrier lzy_create_image_memory_barrier(VkImage image
 	VkImageMemoryBarrier retval = {VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
 
 	retval.srcAccessMask = accessMaskSrc;
-    retval.dstAccessMask = accessMaskDst;
-    retval.oldLayout = imageLayoutOld;
-    retval.newLayout = imageLayoutNew;
-    retval.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    retval.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    retval.image = image;
-    retval.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	retval.dstAccessMask = accessMaskDst;
+	retval.oldLayout = imageLayoutOld;
+	retval.newLayout = imageLayoutNew;
+	retval.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	retval.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	retval.image = image;
+	retval.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 	retval.subresourceRange.levelCount = VK_REMAINING_MIP_LEVELS;
 	retval.subresourceRange.layerCount = VK_REMAINING_ARRAY_LAYERS;
 
@@ -402,33 +503,33 @@ internal_func VkInstance lzy_create_instance()
 }
 
 internal_func VkBool32 lzy_debug_callback(
-    VkDebugReportFlagsEXT                       flags,
-    VkDebugReportObjectTypeEXT                  objectType,
-    uint64_t                                    object,
-    size_t                                      location,
-    int32_t                                     messageCode,
-    const char*                                 pLayerPrefix,
-    const char*                                 pMessage,
-    void*                                       pUserData)
+	VkDebugReportFlagsEXT flags,
+	VkDebugReportObjectTypeEXT objectType,
+	uint64_t object,
+	size_t location,
+	int32_t messageCode,
+	const char *pLayerPrefix,
+	const char *pMessage,
+	void *pUserData)
+{
+	if (flags & (VK_DEBUG_REPORT_ERROR_BIT_EXT))
 	{
-		if(flags & (VK_DEBUG_REPORT_ERROR_BIT_EXT))
-		{
-			LCOREFATAL("%s", pMessage);
-			exit(-1);
-		} else if(flags & (VK_DEBUG_REPORT_WARNING_BIT_EXT | VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT))
-		{
-			LCOREWARN("%s", pMessage);
-		} else if(flags &  VK_DEBUG_REPORT_INFORMATION_BIT_EXT)
-		{
-			LCOREINFO("%s",pMessage);
-		}
-
-		
-
-		return VK_FALSE;
+		LCOREFATAL("%s", pMessage);
+		exit(-1);
+	}
+	else if (flags & (VK_DEBUG_REPORT_WARNING_BIT_EXT | VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT))
+	{
+		LCOREWARN("%s", pMessage);
+	}
+	else if (flags & VK_DEBUG_REPORT_INFORMATION_BIT_EXT)
+	{
+		LCOREINFO("%s", pMessage);
 	}
 
-internal_func b8 lzy_create_debug_messenger(VkDebugReportCallbackEXT* pDebugMessenger)
+	return VK_FALSE;
+}
+
+internal_func b8 lzy_create_debug_messenger(VkDebugReportCallbackEXT *pDebugMessenger)
 {
 	VkDebugReportCallbackCreateInfoEXT createInfo = {VK_STRUCTURE_TYPE_DEBUG_REPORT_CALLBACK_CREATE_INFO_EXT};
 	createInfo.flags = VK_DEBUG_REPORT_INFORMATION_BIT_EXT |
@@ -439,7 +540,7 @@ internal_func b8 lzy_create_debug_messenger(VkDebugReportCallbackEXT* pDebugMess
 	createInfo.pfnCallback = lzy_debug_callback;
 
 	PFN_vkCreateDebugReportCallbackEXT vkCreateDebugReportCallbackEXT = (PFN_vkCreateDebugReportCallbackEXT)vkGetInstanceProcAddr(rendererState.instance, "vkCreateDebugReportCallbackEXT");
-	if(vkCreateDebugReportCallbackEXT(rendererState.instance, &createInfo, NULL, pDebugMessenger) != VK_SUCCESS)
+	if (vkCreateDebugReportCallbackEXT(rendererState.instance, &createInfo, NULL, pDebugMessenger) != VK_SUCCESS)
 	{
 		LCOREFATAL("Could not create vulkan debug messenger");
 		return false;
@@ -586,8 +687,7 @@ internal_func b8 lzy_create_swapchain(VkSwapchainKHR *pSwapchain, LzyQueueFamily
 {
 	VkSurfaceFormatKHR chosenFormat = pDetails->pFormats[0];
 
-
-	if(pDetails->uFormatCount == 1 && pDetails->pFormats[0].format == VK_FORMAT_UNDEFINED)
+	if (pDetails->uFormatCount == 1 && pDetails->pFormats[0].format == VK_FORMAT_UNDEFINED)
 	{
 		chosenFormat.format = VK_FORMAT_R8G8B8A8_UNORM;
 		chosenFormat.colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
@@ -766,10 +866,10 @@ b8 lzy_renderer_init()
 	if (!lzy_create_instance())
 		return false;
 
-	#ifdef _DEBUG
-	if(!lzy_create_debug_messenger(&rendererState.debugMessenger))
+#ifdef _DEBUG
+	if (!lzy_create_debug_messenger(&rendererState.debugMessenger))
 		return false;
-	#endif
+#endif
 
 	if (!lzy_create_surface())
 		return false;
@@ -827,7 +927,27 @@ b8 lzy_renderer_init()
 		return false;
 	}
 
-	VkAllocationCallbacks a;
+	LzyObjContents contents;
+	LzyFile objFile;
+	if (!lzy_file_open(&objFile, "kitten.obj", LZY_FILE_MODE_READ))
+	{
+		LCOREFATAL("Could not open file kitten.obj");
+		return false;
+	}
+
+	lzy_obj_load_file(objFile, &contents);
+
+	VkPhysicalDeviceMemoryProperties memProps;
+	vkGetPhysicalDeviceMemoryProperties(rendererState.physicalDevice, &memProps);
+
+	if (!lzy_create_buffer(&rendererState.vertexBuffer, &memProps, lzy_vector_size(contents.pVertices) * sizeof(*contents.pVertices), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT) ||
+		!lzy_create_buffer(&rendererState.indexBuffer, &memProps, lzy_vector_size(contents.pIndices) * sizeof(u32), VK_BUFFER_USAGE_INDEX_BUFFER_BIT))
+	{
+		return false;
+	}
+
+	lzy_memcpy(rendererState.vertexBuffer.pData, contents.pVertices, lzy_vector_size(contents.pVertices) * sizeof(*contents.pVertices));
+	lzy_memcpy(rendererState.indexBuffer.pData, contents.pIndices, lzy_vector_size(contents.pIndices) * sizeof(u32));
 
 	VkCommandBufferAllocateInfo allocInfo = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO};
 	allocInfo.commandPool = rendererState.commandPool;
@@ -874,11 +994,11 @@ b8 lzy_renderer_loop()
 	vkBeginCommandBuffer(rendererState.commandBuffer, &beginInfo);
 	VkImageMemoryBarrier rendererBeginBarrier = lzy_create_image_memory_barrier(rendererState.pSwapchainImages[uImageIndex], 0, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 	vkCmdPipelineBarrier(
-	rendererState.commandBuffer,
-	VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 
-	VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-	VK_DEPENDENCY_BY_REGION_BIT,
-	0,NULL, 0, NULL, 1, &rendererBeginBarrier);
+		rendererState.commandBuffer,
+		VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+		VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+		VK_DEPENDENCY_BY_REGION_BIT,
+		0, NULL, 0, NULL, 1, &rendererBeginBarrier);
 
 	VkRenderPassBeginInfo renderPassBeginInfo = {
 		.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
@@ -887,8 +1007,6 @@ b8 lzy_renderer_loop()
 		.renderArea.extent = rendererState.swapchainExtent,
 		.clearValueCount = 1,
 		.pClearValues = &clearValue};
-
-
 
 	u16 uWindowWidth, uWindowHeight;
 	lzy_application_get_framebuffer_size(&uWindowWidth, &uWindowHeight);
@@ -906,17 +1024,21 @@ b8 lzy_renderer_loop()
 	vkCmdSetScissor(rendererState.commandBuffer, 0, 1, &scissor);
 
 	vkCmdBindPipeline(rendererState.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, rendererState.trianglePipeline);
-	vkCmdDraw(rendererState.commandBuffer, 3, 1, 0, 0);
+	VkDeviceSize uOffset = 0;
+	vkCmdBindVertexBuffers(rendererState.commandBuffer, 0, 1, &rendererState.vertexBuffer.buffer, &uOffset);
+	vkCmdBindIndexBuffer(rendererState.commandBuffer, rendererState.indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
+
+	vkCmdDrawIndexed(rendererState.commandBuffer, rendererState.indexBuffer.uSize / sizeof(u32), 1, 0, 0, 0);
 
 	vkCmdEndRenderPass(rendererState.commandBuffer);
 
 	VkImageMemoryBarrier renderEndBarrier = lzy_create_image_memory_barrier(rendererState.pSwapchainImages[uImageIndex], VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, 0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
 	vkCmdPipelineBarrier(
-	rendererState.commandBuffer,
-	VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 
-	VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-	VK_DEPENDENCY_BY_REGION_BIT,
-	0,NULL, 0, NULL, 1, &renderEndBarrier);
+		rendererState.commandBuffer,
+		VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+		VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+		VK_DEPENDENCY_BY_REGION_BIT,
+		0, NULL, 0, NULL, 1, &renderEndBarrier);
 
 	if (vkEndCommandBuffer(rendererState.commandBuffer) != VK_SUCCESS)
 	{

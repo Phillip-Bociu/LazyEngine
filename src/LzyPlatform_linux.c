@@ -265,7 +265,7 @@ u16 lzy_platform_get_number_of_threads()
 
 void lzy_platform_free(void* ptr, u64 uSize, u8 uAlignment)
 {
-	free(uSize);
+	free(ptr);
 }
 
 void* lzy_platform_realloc(void* ptr, u64 uSize)
