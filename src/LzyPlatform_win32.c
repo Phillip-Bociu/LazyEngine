@@ -26,7 +26,7 @@ internal_func LRESULT LzyWindowProc(HWND hWindow, UINT msg, WPARAM wParam, LPARA
 	}break;
 	case WM_KEYDOWN:
 	{
-		lzy_get_memstats();
+		//lzy_get_memstats();
 	}break;
 	default:
 	{
@@ -42,6 +42,7 @@ b8 lzy_platform_create(LzyPlatform* pPlatform, const char* pWindowTitle, u16 uRe
 	QueryPerformanceFrequency(&iPerfFreq);
 	wchar_t pLongWindowTitle[256];
 	i32 iTitleLen = strlen(pWindowTitle);
+    
 	for (i32 i = 0; i <= iTitleLen; i++)
 	{
 		pLongWindowTitle[i] = pWindowTitle[i];
@@ -71,14 +72,29 @@ b8 lzy_platform_create(LzyPlatform* pPlatform, const char* pWindowTitle, u16 uRe
 	}
 	LPCTSTR;
 
+	RECT res = {
+		.left = 100,
+		.right = 100 + uResX,
+		.top = 100,
+		.bottom = 100 + uResY 
+	};
+
+	if (!AdjustWindowRect(&res, WS_OVERLAPPEDWINDOW, FALSE))
+	{
+		LCOREFATAL("Could not adjust window rect size");
+		return false;
+	}
+
+
 	pState->hWindow = CreateWindow(L"LzyWindowClass",
 								   pLongWindowTitle,
 								   WS_OVERLAPPEDWINDOW | WS_VISIBLE,
 								   CW_USEDEFAULT, CW_USEDEFAULT,
-								   uResX, uResY,
+								   res.right - res.left, res.bottom - res.top,
 								   NULL, NULL,
 								   windowClass.hInstance,
 								   NULL);
+    
 	if (!pState->hWindow) {
 		u32 uErrorCode = GetLastError();
 		LERROR("Win32 window creation error (code#%u)", uErrorCode);
@@ -136,17 +152,19 @@ void lzy_platform_get_framebuffer_size(LzyPlatform platform, u16* pX, u16* pY)
 	if (pX)
 		*pX = rect.right - rect.left;
 	if (pY)
-		*pY = rect.top - rect.bottom;
+		*pY = rect.bottom - rect.top;
 }
 
 void* lzy_platform_alloc(u64 uSize, u8 uAlignment)
 {
-	return VirtualAlloc(NULL, uSize, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+	//return VirtualAlloc(NULL, uSize, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+	return malloc(uSize);
 }
 
 void lzy_platform_free(void* ptr, u64 uSize, u8 uAlignment)
 {
-	VirtualFree(ptr, 0, MEM_RELEASE);
+	//VirtualFree(ptr, 0, MEM_RELEASE);
+	free(ptr);
 }
 
 void* lzy_platform_memcpy(void* pDst, void* pSrc, u64 uSize)
@@ -167,6 +185,11 @@ void* lzy_platform_memzero(void* pDst, u64 uSize)
 void lzy_platform_sleep(u64 uMs)
 {
 	Sleep(uMs);
+}
+
+void* lzy_platform_realloc(void* ptr, u64 uSize)
+{
+	return realloc(ptr, uSize);
 }
 
 f64 lzy_platform_get_time()

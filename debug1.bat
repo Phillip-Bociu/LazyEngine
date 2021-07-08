@@ -1,0 +1,1 @@
+start powershell .\debug.bat

@@ -1,0 +1,86 @@
+version(2);
+project_name = "LazyEngine";
+
+patterns = {
+"*.c",
+"*.cpp",
+"*.h",
+"*.bat",
+"*.sh",
+"*.4coder",
+"*.glsl",
+};
+blacklist_patterns = {
+".*",
+};
+
+load_paths = {
+.win = {
+{ .path = "", .recursive = true, .relative = true, },
+},
+.linux = {
+{ .path = "", .recursive = true, .relative = true, },
+},
+.mac = {
+{ .path = "", .recursive = true, .relative = true, },
+},
+};
+
+commands = {
+
+.buildd = {
+.win = "debug1.bat",
+.linux = "./debug.sh",
+.out = "*compilation*",
+.footer_panel = true,
+.save_dirty_files = true,
+.cursor_at_end = true,
+},
+
+.rund = {
+	.win = "bin\\testd.exe",
+	.linux = "./bin/testd",
+	.out = "Log.txt",
+	.footer_panel = true,
+	.save_dirty_files = false,
+	.cursor_at_end = true,
+},
+
+.build = {
+	.win = "release.bat",
+	.linux = "./release.sh",
+	.out = "*compilation*",
+	.footer_panel = true,
+	.save_dirty_files = true,
+	.cursor_at_end = true,
+},
+
+.run = {
+	.win = "bin\\test.exe",
+	.linux = "./bin/test",
+	.out = "Log.txt",
+	.footer_panel = true,
+	.save_dirty_files = false,
+	.cursor_at_end = true,
+},
+
+.builds = {
+	.win = "compileShaders.bat",
+	.linux = "./bin/test",
+	.out = "Log.txt",
+	.footer_panel = true,
+	.save_dirty_files = false,
+	.cursor_at_end = true,
+},
+
+
+};
+
+fkey_command = {
+.F5 = "rund",
+.F6 = "run",
+.F9 = "buildd",
+.F10 = "build",
+.F11 = "builds",
+};
+

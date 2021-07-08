@@ -31,6 +31,12 @@ b8 lzy_semaphore_signal(LzySemaphore* pSemaphore)
 	ReleaseSemaphore(*pSemaphore, 1, NULL);
 	return true;
 }
+
+b8 lzy_semaphore_destroy(LzySemaphore* pSemaphore)
+{
+	CloseHandle(*pSemaphore);
+}
+
 b8 lzy_semaphore_wait(LzySemaphore* pSemaphore)
 {
 	WaitForSingleObject(*pSemaphore, INFINITE);

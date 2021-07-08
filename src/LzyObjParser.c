@@ -1,6 +1,8 @@
+#include "LzyDefines.h"
 #include "LzyObjParser.h"
 #include "LzyVector.h"
 #include "LzyMemory.h"
+#include "LzyMath.h"
 #include <stdlib.h>
 #include <string.h>
 #include <xmmintrin.h>
@@ -31,6 +33,28 @@ typedef struct LzyObjHashMap
 	LzyObjKeyValue* pMap;
 }LzyObjHashMap;
 
+
+internal_func u64 lzy_str_to_u64(const c8 * pIter, const c8** pEnd)
+{
+	u64 retval = 0;
+    
+	while(*pIter < '0' && *pIter > '9') 
+		pIter++;
+    
+	while (*pIter >= '0' && *pIter <= '9')
+	{
+		retval = (retval * 10) + (*pIter - '0');
+		pIter++;
+	}
+    
+	if (pEnd)
+	{
+		*pEnd = pIter;
+	}
+	return retval;
+}
+
+
 internal_func u64 lzy_obj_hash_map_hash_func(u64 uKey[3])
 {
 	return XXH64(uKey, sizeof(uKey[0]) * 3, LZY_HASH_SEED);
@@ -46,13 +70,13 @@ internal_func b8 lzy_obj_hash_map_create(LzyObjHashMap* pHashMap, u64 uInitialCa
 			break;
 		}
 	}
-
+    
 	pHashMap->uSize = 0;
 	pHashMap->uCapacity = uInitialCapacity;
 	pHashMap->pMeta = lzy_alloc(uInitialCapacity, 16, LZY_MEMORY_TAG_VECTOR);
 	lzy_memset(pHashMap->pMeta, 255, uInitialCapacity);
 	pHashMap->pMap = lzy_alloc(uInitialCapacity * sizeof(LzyObjKeyValue), 8, LZY_MEMORY_TAG_VECTOR);
-
+    
 	if(!pHashMap->pMeta || !pHashMap->pMap)
 	{			
 		LCOREERROR("Could not create obj hash map");
@@ -75,21 +99,21 @@ internal_func u64 lzy_obj_hash_map_find(LzyObjHashMap* pHashMap, u64 uKey[3])
 		i32 iCmpRes = _mm_movemask_epi8(cmpres);
 		if(iCmpRes != 0)
 		{
-			uRetval = uIndex * 16 + __builtin_ffs(iCmpRes) - 1;
+			uRetval = uIndex * 16 + lzy_bit_scan_forward(iCmpRes) - 1;
 			break;
 		} else
 		{
 			return (~0ull);
 		}
 	}while(true);
-
+    
 	do
 	{
 		if(pHashMap->pMap[uRetval].uKey[0] == uKey[0] && 
 		   pHashMap->pMap[uRetval].uKey[1] == uKey[1] &&
 		   pHashMap->pMap[uRetval].uKey[2] == uKey[2])
-		   break;
-
+            break;
+        
 		if(pHashMap->pMeta[uRetval / 16].bytes[uRetval & 15] == -1)
 			return ~0ull;
 		uRetval++;
@@ -104,12 +128,12 @@ internal_func void lzy_obj_hash_map_grow(LzyObjHashMap* pHashMap)
 	Packed16* pOldMeta = pHashMap->pMeta; 	  
 	LzyObjKeyValue* pOldMap = pHashMap->pMap;
 	u64 uOldCap = pHashMap->uCapacity;
-
+    
 	pHashMap->pMeta = lzy_alloc(pHashMap->uCapacity * 2, 16, LZY_MEMORY_TAG_VECTOR);
 	lzy_memset(pHashMap->pMeta, 255, pHashMap->uCapacity * 2);
 	pHashMap->pMap  = lzy_alloc(pHashMap->uCapacity * 2 * sizeof(LzyObjKeyValue), 8, LZY_MEMORY_TAG_VECTOR);
 	pHashMap->uCapacity *= 2;
-
+    
 	for(u64 i = 0; i < 1 + pHashMap->uCapacity / 16; i++)
 	{
 		__m128i res = _mm_set1_epi8(-1);
@@ -117,7 +141,7 @@ internal_func void lzy_obj_hash_map_grow(LzyObjHashMap* pHashMap)
 		i32 iRes =_mm_movemask_epi8(res); 
 		if(iRes != -1)
 		{
-			for(i32 j = __builtin_ffs(iRes) - 1; j < 16; j++)
+			for(i32 j = lzy_bit_scan_forward(iRes) - 1; j < 16; j++)
 			{
 				if(pOldMeta[i].bytes[j] != -1)
 				{
@@ -141,7 +165,7 @@ internal_func b8 lzy_obj_hash_map_insert(LzyObjHashMap* pHashMap, const u64 uKey
 	
 	const u64 uHash = lzy_obj_hash_map_hash_func(uKey);
 	u64 uIndex = (uHash & (pHashMap->uCapacity - 1)) / 16;
-
+    
 	__m128i cmp = _mm_set1_epi8(-1);
 	while(true)
 	{
@@ -149,7 +173,7 @@ internal_func b8 lzy_obj_hash_map_insert(LzyObjHashMap* pHashMap, const u64 uKey
 		i32 iRes = _mm_movemask_epi8(cmpres);
 		if(iRes != 0)
 		{
-			uIndex = uIndex * 16 + __builtin_ffs(iRes) - 1;
+			uIndex = uIndex * 16 + lzy_bit_scan_forward(iRes) - 1;
 			break;
 		}
 		uIndex++;
@@ -158,14 +182,14 @@ internal_func b8 lzy_obj_hash_map_insert(LzyObjHashMap* pHashMap, const u64 uKey
 			return false;
 		}
 	}
-
+    
 	pHashMap->pMeta[uIndex / 16].bytes[uIndex & 15] = uHash & 0b1111111ull;
 	pHashMap->pMap[uIndex].uKey[0] = uKey[0];
 	pHashMap->pMap[uIndex].uKey[1] = uKey[1];
 	pHashMap->pMap[uIndex].uKey[2] = uKey[2];
 	pHashMap->pMap[uIndex].uVertexIndex = uVertexIndex;
 	pHashMap->uSize++;
-
+    
 	return true;
 }
 
@@ -177,18 +201,18 @@ internal_func b8 lzy_char_is_endofline(c8 c)
 
 internal_func c8 *lzy_parse_triangle(c8 *pIter, LzyObjHashMap* pHashMap, LzyObjVertex *pVertices,u32* pIndices, const f32 *pPositions, const f32 *pTextureCoords, const f32 *pNormals)
 {
-
+    
 	u64 uKey[3];
-
-	u64 v1 = strtouq(pIter, &pIter, 10) - 1;
-	u64 vt1 = strtouq(pIter + 1, &pIter, 10);
+    
+	u64 v1 = lzy_str_to_u64(pIter, &pIter) - 1;
+	u64 vt1 = lzy_str_to_u64(pIter + 1, &pIter);
 	if (vt1 != 0)
 		vt1--;
-	u64 vn1 = strtouq(pIter + 1, &pIter, 10) - 1;
+	u64 vn1 = lzy_str_to_u64(pIter + 1, &pIter) - 1;
 	uKey[0] =  v1;
 	uKey[1] = vt1;
 	uKey[2] = vn1;
-
+    
 	u64 uIndex = lzy_obj_hash_map_find(pHashMap, uKey); 
 	if(uIndex != ~0ull)
 	{
@@ -197,29 +221,29 @@ internal_func c8 *lzy_parse_triangle(c8 *pIter, LzyObjHashMap* pHashMap, LzyObjV
 	{
 		lzy_vector_emplace(pIndices) = lzy_vector_size(pVertices);
 		lzy_vector_emplace(pVertices);
-
+        
 		lzy_vector_back(pVertices).fPosX = pPositions[v1 * 3 + 0];
 		lzy_vector_back(pVertices).fPosY = pPositions[v1 * 3 + 1];
 		lzy_vector_back(pVertices).fPosZ = pPositions[v1 * 3 + 2];
-
+        
 		lzy_vector_back(pVertices).fU = pTextureCoords[vt1 * 2 + 0];
 		lzy_vector_back(pVertices).fV = pTextureCoords[vt1 * 2 + 1];
-
+        
 		lzy_vector_back(pVertices).fNormalX = pNormals[vn1 * 3 + 0];
 		lzy_vector_back(pVertices).fNormalY = pNormals[vn1 * 3 + 1];
 		lzy_vector_back(pVertices).fNormalZ = pNormals[vn1 * 3 + 2];
 	}
-
-	u64 v2 = strtouq(pIter + 1, &pIter, 10) - 1;
-	u64 vt2 = strtouq(pIter + 1, &pIter, 10) - 1;
+    
+	u64 v2 = lzy_str_to_u64(pIter + 1, &pIter) - 1;
+	u64 vt2 = lzy_str_to_u64(pIter + 1, &pIter) - 1;
 	if (vt2 != 0)
 		vt2--;
-	u64 vn2 = strtouq(pIter + 1, &pIter, 10) - 1;
-
+	u64 vn2 = lzy_str_to_u64(pIter + 1, &pIter) - 1;
+    
 	uKey[0] =  v2;
 	uKey[1] = vt2;
 	uKey[2] = vn2;
-
+    
 	uIndex = lzy_obj_hash_map_find(pHashMap, uKey); 
 	if(uIndex != ~0ull)
 	{
@@ -228,27 +252,27 @@ internal_func c8 *lzy_parse_triangle(c8 *pIter, LzyObjHashMap* pHashMap, LzyObjV
 	{
 		lzy_vector_emplace(pIndices) = lzy_vector_size(pVertices);
 		lzy_vector_emplace(pVertices);
-
+        
 		lzy_vector_back(pVertices).fPosX = pPositions[v2 * 3 + 0];
 		lzy_vector_back(pVertices).fPosY = pPositions[v2 * 3 + 1];
 		lzy_vector_back(pVertices).fPosZ = pPositions[v2 * 3 + 2];
-
+        
 		lzy_vector_back(pVertices).fU = pTextureCoords[vt2 * 2 + 0];
 		lzy_vector_back(pVertices).fV = pTextureCoords[vt2 * 2 + 1];
-
+        
 		lzy_vector_back(pVertices).fNormalX = pNormals[vn2 * 3 + 0];
 		lzy_vector_back(pVertices).fNormalY = pNormals[vn2 * 3 + 1];
 		lzy_vector_back(pVertices).fNormalZ = pNormals[vn2 * 3 + 2];
 	}
-
-
-	u64 v3 = strtouq(pIter + 1, &pIter, 10) - 1;
-	u64 vt3 = strtouq(pIter + 1, &pIter, 10) - 1;
+    
+    
+	u64 v3 = lzy_str_to_u64(pIter + 1, &pIter) - 1;
+	u64 vt3 = lzy_str_to_u64(pIter + 1, &pIter) - 1;
 	if (vt3 != 0)
 		vt3--;
-
-	u64 vn3 = strtouq(pIter + 1, &pIter, 10) - 1;
-
+    
+	u64 vn3 = lzy_str_to_u64(pIter + 1, &pIter) - 1;
+    
 	uKey[0] =  v3;
 	uKey[1] = vt3;
 	uKey[2] = vn3;
@@ -261,19 +285,19 @@ internal_func c8 *lzy_parse_triangle(c8 *pIter, LzyObjHashMap* pHashMap, LzyObjV
 	{
 		lzy_vector_emplace(pIndices) = lzy_vector_size(pVertices);
 		lzy_vector_emplace(pVertices);
-
+        
 		lzy_vector_back(pVertices).fPosX = pPositions[v3 * 3 + 0];
 		lzy_vector_back(pVertices).fPosY = pPositions[v3 * 3 + 1];
 		lzy_vector_back(pVertices).fPosZ = pPositions[v3 * 3 + 2];
-
+        
 		lzy_vector_back(pVertices).fU = pTextureCoords[vt3 * 2 + 0];
 		lzy_vector_back(pVertices).fV = pTextureCoords[vt3 * 2 + 1];
-
+        
 		lzy_vector_back(pVertices).fNormalX = pNormals[vn3 * 3 + 0];
 		lzy_vector_back(pVertices).fNormalY = pNormals[vn3 * 3 + 1];
 		lzy_vector_back(pVertices).fNormalZ = pNormals[vn3 * 3 + 2];
 	}
-
+    
 	return pIter;
 }
 
@@ -282,7 +306,7 @@ internal_func c8 *lzy_parse_position(const c8 *pIter, f32 *pPositions)
 	lzy_vector_emplace(pPositions) = strtof(pIter, &pIter);
 	lzy_vector_emplace(pPositions) = strtof(pIter + 1, &pIter);
 	lzy_vector_emplace(pPositions) = strtof(pIter + 1, &pIter);
-
+    
 	return pIter;
 }
 
@@ -290,7 +314,7 @@ internal_func c8 *lzy_parse_texture_coords(const c8 *pIter, f32 *pTextureCoords)
 {
 	lzy_vector_emplace(pTextureCoords) = strtof(pIter, &pIter);
 	lzy_vector_emplace(pTextureCoords) = strtof(pIter + 1, &pIter);
-
+    
 	return pIter;
 }
 
@@ -299,7 +323,7 @@ internal_func c8 *lzy_parse_normals(const c8 *pIter, f32 *pNormals)
 	lzy_vector_emplace(pNormals) = strtof(pIter, &pIter);
 	lzy_vector_emplace(pNormals) = strtof(pIter + 1, &pIter);
 	lzy_vector_emplace(pNormals) = strtof(pIter + 1, &pIter);
-
+    
 	return pIter;
 }
 
@@ -307,109 +331,89 @@ internal_func c8 *lzy_next_line(const c8 *pIter, const c8* const pEnd)
 {
 	while (*pIter != NULL)
 		pIter++;
-
+    
 	while (*pIter == NULL && pIter != pEnd)
 		pIter++;
-
+    
 	return pIter;
 }
 
 b8 lzy_obj_load_file(LzyFile file, LzyObjContents *pContents)
 {
-
-
+    
+    
 	f32 *pPositions;
 	f32 *pTextureCoords;
 	f32 *pNormals;
-
+    
 	lzy_vector_create(pPositions, 0);
 	lzy_vector_reserve(pPositions, 128);
-
+    
 	lzy_vector_create(pTextureCoords, 0);
 	lzy_vector_reserve(pTextureCoords, 128);
-
+    
 	lzy_vector_create(pNormals, 0);
 	lzy_vector_reserve(pNormals, 128);
-
+    
 	lzy_vector_create(pContents->pVertices, 0);
 	lzy_vector_reserve(pContents->pVertices, 512);
-
+    
 	lzy_vector_create(pContents->pIndices, 0);
 	lzy_vector_reserve(pContents->pIndices, 1024);
-
+    
 	if (!pPositions || !pTextureCoords || !pNormals || !pContents->pVertices)
 	{
 		LCOREERROR("Could not create vectors for .obj parsing");
 		return false;
 	}
-
+    
 	u64 uFileSize;
-
+    
 	if (!lzy_file_get_size(file, &uFileSize))
 	{
 		return false;
 	}
- 
+    
 	c8 *pFileContents = lzy_alloc(uFileSize + 1, 1, LZY_MEMORY_TAG_STRING);
 	lzy_file_read(file, pFileContents, uFileSize);
 	pFileContents[uFileSize] = NULL;
-
+    
 	c8* pSave;
-	c8 *pIter = strtok_r(pFileContents, "\r\n", &pSave);
-
+	c8 *pIter = strtok_s(pFileContents, "\r\n", &pSave);
+    
 	const c8 *const pEnd = pFileContents + uFileSize + 1;
-
+    
 	u32 line = 1;
-
-	for (; pIter != NULL; line++, pIter = strtok_r(NULL, "\r\n", &pSave))
+    
+	for (; pIter != NULL; line++, pIter = strtok_s(NULL, "\r\n", &pSave))
 	{
-		
-
-		if(lzy_vector_size(pPositions) == 126)
-		{
-			LINFO("Crash?");
-		}
-
-		if(line == 44)
-		{
-			LINFO("Gonna break");
-		}
 		if (*pIter == 'v')
 		{
 			switch (*(pIter + 1))
 			{
-			case ' ':
-			{
-				LTRACE("Pos Size:%llu", lzy_vector_size(pPositions));
-				LTRACE("Pos Cap :%llu", lzy_vector_capacity(pPositions));
-
-				if(lzy_vector_capacity(pPositions) - lzy_vector_size(pPositions) <= 3)
-					lzy_vector_reserve(pPositions, lzy_vector_capacity(pPositions) * 2);
-				pIter = lzy_parse_position(pIter + 2, pPositions);
-			}
-			break;
-
-			case 't':
-			{
-				LTRACE("Tex Size:%llu", lzy_vector_size    (pTextureCoords));
-				LTRACE("Tex Cap :%llu", lzy_vector_capacity(pTextureCoords));
-
-				if(lzy_vector_capacity(pTextureCoords) - lzy_vector_size(pTextureCoords) <= 3)
-					lzy_vector_reserve(pTextureCoords, lzy_vector_capacity(pTextureCoords) * 2);
-				pIter = lzy_parse_texture_coords(pIter + 3, pTextureCoords);
-			}
-			break;
-
-			case 'n':
-			{
-				LTRACE("Normals Size:%llu", lzy_vector_size	   (pNormals));
-				LTRACE("Normals Cap :%llu", lzy_vector_capacity(pNormals));
-
-				if(lzy_vector_capacity(pNormals) - lzy_vector_size(pNormals) <= 3)
-					lzy_vector_reserve(pNormals, lzy_vector_capacity(pNormals) * 2);
-				pIter = lzy_parse_normals(pIter + 3, pNormals);
-			}
-			break;
+                case ' ':
+                {
+                    if(lzy_vector_capacity(pPositions) - lzy_vector_size(pPositions) <= 3)
+                        lzy_vector_reserve(pPositions, lzy_vector_capacity(pPositions) * 2);
+                    pIter = lzy_parse_position(pIter + 2, pPositions);
+                }
+                break;
+                
+                case 't':
+                {
+                    if(lzy_vector_capacity(pTextureCoords) - lzy_vector_size(pTextureCoords) <= 3)
+                        lzy_vector_reserve(pTextureCoords, lzy_vector_capacity(pTextureCoords) * 2);
+                    pIter = lzy_parse_texture_coords(pIter + 3, pTextureCoords);
+                }
+                break;
+                
+                case 'n':
+                {
+                    if(lzy_vector_capacity(pNormals) - lzy_vector_size(pNormals) <= 3)
+                        lzy_vector_reserve(pNormals, lzy_vector_capacity(pNormals) * 2);
+                    pIter = lzy_parse_normals(pIter + 3, pNormals);
+                }
+                break;
 			}
 		}
 		else if (*pIter == 'f')
@@ -417,24 +421,24 @@ b8 lzy_obj_load_file(LzyFile file, LzyObjContents *pContents)
 			break;
 		}
 	}
-
+    
 	LzyObjHashMap hashMap;
-
+    
 	lzy_obj_hash_map_create(&hashMap, lzy_vector_size(pPositions) + lzy_vector_size(pPositions) / 2);
-
-	for (; pIter != NULL; pIter = strtok_r(NULL, "\r\n", &pSave))
+    
+	for (; pIter != NULL; pIter = strtok_s(NULL, "\r\n", &pSave))
 	{
 		if (*pIter == 'f')
 		{
 			if(lzy_vector_capacity(pContents->pVertices) - lzy_vector_size   (pContents->pVertices) <= 3)
 				lzy_vector_reserve(pContents->pVertices, lzy_vector_capacity (pContents->pVertices) * 2);
-
+            
 			if(lzy_vector_capacity(pContents->pIndices) - lzy_vector_size    (pContents->pIndices) <= 3)
 				lzy_vector_reserve(pContents->pIndices,   lzy_vector_capacity(pContents->pIndices) * 2);
 			pIter = lzy_parse_triangle(pIter + 2, &hashMap, pContents->pVertices, pContents->pIndices, pPositions, pTextureCoords, pNormals);
 		}
 	}
-
+    
 	lzy_free(pFileContents, uFileSize + 1, LZY_MEMORY_TAG_STRING);
 	lzy_vector_free(pNormals);
 	lzy_vector_free(pTextureCoords);

@@ -36,6 +36,7 @@
 #define NOTAPE
 #define NOMINMAX
 #define STRICT
+#include <Windows.h>
 #endif
 
 #ifdef LEXPORT
@@ -73,6 +74,9 @@
 #define STATIC_ASSERT(exp, msg) static_assert(exp, msg)
 #endif
 
+#ifndef _WIN32
+#define strtok_s strtok_r
+#endif
 
 #define true 1
 #define false 0

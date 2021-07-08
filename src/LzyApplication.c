@@ -32,7 +32,7 @@ internal_func void _lzy_event_init(LzyJob* pJob, void* pArgs_)
         b8* pResult;
         LzySemaphore* pSem;
     }*pArgs = (struct InitArgs_t*)pArgs_;
-
+    
     *pArgs->pResult = lzy_event_init();
     lzy_semaphore_signal(pArgs->pSem);
 }
@@ -44,7 +44,7 @@ internal_func void _lzy_renderer_init(LzyJob* pJob, void* pArgs_)
         b8* pResult;
         LzySemaphore* pSem;
     }*pArgs = (struct InitArgs_t*)pArgs_;
-
+    
     *pArgs->pResult = lzy_renderer_init();
     lzy_semaphore_signal(pArgs->pSem);
 }
@@ -56,12 +56,12 @@ internal_func void _lzy_platform_init(LzyJob* pJob, void* pArgs)
         LzyGame* pGame;
         b8* pSucceded;
     }*pArgs_ = pArgs;
-
-    pArgs_->pSucceded = lzy_platform_create(&lzyApp.platform, 
-                                            pArgs_->pGame->appConfig.pApplicationName,
-                                            pArgs_->pGame->appConfig.uResX,
-                                            pArgs_->pGame->appConfig.uResY
-                                            );
+    
+    *pArgs_->pSucceded = lzy_platform_create(&lzyApp.platform, 
+                                             pArgs_->pGame->appConfig.pApplicationName,
+                                             pArgs_->pGame->appConfig.uResX,
+                                             pArgs_->pGame->appConfig.uResY
+                                             );
 }
 
 
@@ -72,27 +72,27 @@ b8 lzy_application_create(LzyGame* pGame)
         LCOREERROR("%s", "Application was already created");
         return false;
     }
-
+    
     LCORETRACE("lol %f", 3.14f);
     LCOREINFO("lol %f", 3.14f);
     LCOREWARN("lol %f", 3.14f);
     LCOREERROR("lol %f", 3.14f);
     LCOREFATAL("lol %f", 3.14f);
     LCOREASSERT(false, "Assertion Test");
-
-
+    
+    
     if (!lzy_memory_init(&pGame->appConfig.memoryConfig))
     {
         LCOREFATAL("Could not initialize memory subsystem!");
         return false;
     }
-
+    
     if (!lzy_job_system_init())
     {
         LCOREFATAL("Could not initialize job system!");
         return false;
     }
-
+    
     if (!lzy_platform_create(&lzyApp.platform,
                              pGame->appConfig.pApplicationName,
                              pGame->appConfig.uResX,
@@ -106,84 +106,87 @@ b8 lzy_application_create(LzyGame* pGame)
     lzyApp.uResY = pGame->appConfig.uResY;
     lzyApp.bIsRunning = true;
     lzyApp.bIsSuspended = false;
-
-
-
+    
+    
+    
     //Subsystem Initializations
-#if 1
-
+#if 0
+    
     b8 bEventInitialized;
     b8 bRendererInitialized;
-
+    
     LzySemaphore semInit;
-
+    
     struct InitArgs_t
     {
         b8* pResult;
         LzySemaphore* pSem;
     }eventArgs, rendererArgs;
-
+    
     eventArgs.pResult = &bEventInitialized;
     eventArgs.pSem = &semInit;
-
+    
     rendererArgs.pResult = &bRendererInitialized;
     rendererArgs.pSem = &semInit;
-
+    
     lzy_semaphore_init(&semInit, 0);
-
+    
     lzy_job_system_enque_free_job(_lzy_renderer_init, &eventArgs, LZY_JOB_ID_INVALID);
     lzy_job_system_enque_free_job(_lzy_event_init, &rendererArgs, LZY_JOB_ID_INVALID);
-
+    
     lzy_semaphore_wait(&semInit);
     lzy_semaphore_wait(&semInit);
-
+    
     lzy_semaphore_destroy(&semInit);
-
+    
     if (!bEventInitialized)
     {
         LCOREFATAL("Could not initialize event subsystem!");
         return false;
     }
-
+    
     if (!bRendererInitialized)
     {
         LCOREFATAL("Could not initialize renderer subsystem!");
         return false;
     }
-
+    
     LCOREINFO("Gata");
-
+    
 #else
-
+    
     if(!lzy_event_init())
     {
         LCOREFATAL("Could not initialize event subsystem!");
         return false;
     }
-
+    
     if(!lzy_renderer_init())
     {
         LCOREFATAL("Could not initialize renderer subsystem!");
         return false;
     }
 #endif
-
+    
     //TODO Memory Stage 2
-
+    
     if (!pGame->fpStart(pGame))
     {
         LCOREFATAL("%s", "Could not start the game");
         return false;
     }
-
+    
     bIsInitialized = true;
-
+    
     return true;
 }
 
 void lzy_application_get_framebuffer_size(u16* pX, u16* pY)
 {
-    lzy_platform_get_framebuffer_size(lzyApp.platform, pX, pY);
+    if (pX)
+        *pX = lzyApp.uResX;
+    if (pY)
+        *pY = lzyApp.uResY;
 }
 
 void lzy_application_get_surface_create_info(LzyWindowSurfaceCreateInfo* pSurface)
@@ -210,11 +213,11 @@ b8 lzy_application_run()
         if (fTime >= 1.0)
         {
             fTime = 0;
-            LCOREINFO("FPS:%llu", uFrameCounter);
+            LCOREERROR("FPS:%llu", uFrameCounter);
             uFrameCounter = 0;
         }
         lzyApp.bIsRunning = !lzy_platform_poll_events(lzyApp.platform);
-
+        
         if(!lzyApp.bIsRunning)
             exit(0);
         
@@ -225,28 +228,28 @@ b8 lzy_application_run()
                 LCOREFATAL("%s","Game update failed!");
                 break;
             }
-
+            
             if(!lzyApp.pGame->fpRender(lzyApp.pGame, lzy_time_get_deltatime(lzyApp.clock)))
             {
                 LCOREFATAL("%s","Game Render failed!");
                 break;
             }
-
+            
             if(!lzy_renderer_loop())
             {
                 LCOREFATAL("Rendering error");
                 break;
             }
         }
-
+        
         uFrameCounter++;
         fFrameDuration = lzy_platform_get_time() - fFrameStartTime;
         lzy_platform_sleep(max((1.0/60.0 - fFrameDuration) * 1000.0, 0.0));
     }
-
+    
     lzyApp.bIsRunning = false;
-
+    
     lzy_platform_shutdown(lzyApp.platform);
-
+    
     return true;
 }

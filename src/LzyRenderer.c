@@ -56,14 +56,105 @@ typedef struct LzyRendererState
 	VkRenderPass renderPass;
 	VkShaderModule triangleVertexShader;
 	VkShaderModule triangleFragmentShader;
+    VkPipelineLayout trianglePipelineLayout;
 	VkPipeline trianglePipeline;
 	VkDebugReportCallbackEXT debugMessenger;
 	LzyVulkanBuffer vertexBuffer;
 	LzyVulkanBuffer indexBuffer;
+    VkDescriptorSetLayout vertexBufferLayout;
+    VkDescriptorPool descriptorPool;
+    VkDescriptorSet vertexBufferDescriptorSet;
 } LzyRendererState;
 
 global b8 bIsInitialized = false;
 global LzyRendererState rendererState;
+
+
+internal_func
+VkDescriptorSetLayoutBinding
+lzy_create_descriptor_set_layout_binding(u32 uBinding,
+                                         VkDescriptorType descriptorType,
+                                         u32 uDescriptorCount,
+                                         VkShaderStageFlags stageFlags)
+{
+    
+    VkDescriptorSetLayoutBinding retval = {0};
+    
+    retval.binding = uBinding;
+    retval.descriptorType = descriptorType;
+    retval.descriptorCount = uDescriptorCount;
+    retval.stageFlags = stageFlags;
+    //retval.pImmutableSamplers = 0;
+    
+    return retval;
+}
+
+internal_func b8 lzy_create_descriptor_set_layout(VkDescriptorSetLayout* pLayout, 
+                                                  VkDescriptorSetLayoutCreateFlags flags, 
+                                                  VkDescriptorSetLayoutBinding* pBindings, 
+                                                  u32 uBindingCount)
+{
+    
+    VkDescriptorSetLayoutCreateInfo createInfo = {VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO};
+    
+    createInfo.flags = flags;
+    createInfo.bindingCount = uBindingCount;
+    createInfo.pBindings = pBindings;
+    
+    if(vkCreateDescriptorSetLayout(rendererState.device, &createInfo, NULL, pLayout) != VK_SUCCESS)
+    {
+        LCOREERROR("Could not create descriptor set layout");
+        return false;
+    }
+    
+    return true;
+}
+
+internal_func b8 lzy_create_descriptor_pool(VkDescriptorPool* pPool, 
+                                            VkDescriptorPoolCreateFlags flags, 
+                                            u32 uMaxSetCount, 
+                                            VkDescriptorPoolSize* pSizes, 
+                                            u32 uPoolSizeCount)
+{
+    VkDescriptorPoolCreateInfo createInfo = {VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO};
+    
+    createInfo.flags = flags;
+    createInfo.maxSets = uMaxSetCount;
+    createInfo.poolSizeCount = uPoolSizeCount;
+    createInfo.pPoolSizes = pSizes;
+    
+    if(vkCreateDescriptorPool(rendererState.device, &createInfo, NULL, pPool) != VK_SUCCESS)
+    {
+        LCOREERROR("Could not create Descriptor Pool");
+        return false;
+    }
+
+    return true;
+}
+
+
+internal_func b8 lzy_create_descriptor_set(VkDescriptorSet* pDescriptorSets, 
+                                           u32 uDescriptorSetCount, 
+                                           VkDescriptorPool pool, 
+                                           VkDescriptorSetLayout* pLayouts)
+{
+    
+    VkDescriptorSetAllocateInfo allocInfo = {VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO};
+    allocInfo.descriptorPool = pool;
+    allocInfo.descriptorSetCount = uDescriptorSetCount;
+    allocInfo.pSetLayouts = pLayouts;
+    
+    if(vkAllocateDescriptorSets(rendererState.device, &allocInfo, pDescriptorSets) != VK_SUCCESS)
+    {
+        LCOREERROR("Could not allocate Descriptor Sets");
+        return false;
+    }
+    
+    return true;
+}
+
+
+
 
 internal_func u32 lzy_select_memory_type_bits(const VkPhysicalDeviceMemoryProperties *pMemoryProps, u32 uMemoryTypeBits, VkMemoryPropertyFlags flags)
 {
@@ -134,11 +225,19 @@ internal_func void lzy_destroy_buffer(LzyVulkanBuffer *pBuffer)
 	vkFreeMemory(rendererState.device, pBuffer->memory, NULL);
 }
 
-internal_func b8 lzy_create_graphics_pipeline_layout(VkPipelineLayout *pLayout)
+internal_func b8 lzy_create_graphics_pipeline_layout(VkPipelineLayout *pLayout,
+                                                     u32 uSetLayoutCount,
+                                                     VkDescriptorSetLayout* pSetLayouts,
+                                                     u32 uPushContantRangeCount,
+                                                     VkPushConstantRange* pPushConstantRanges)
 {
 
 	VkPipelineLayoutCreateInfo createInfo = {VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO};
-
+    createInfo.setLayoutCount = uSetLayoutCount;
+    createInfo.pSetLayouts = pSetLayouts;
+    createInfo.pushConstantRangeCount = uPushContantRangeCount;
+    createInfo.pPushConstantRanges = pPushConstantRanges;
+    
 	if (vkCreatePipelineLayout(rendererState.device, &createInfo, NULL, pLayout) != VK_SUCCESS)
 	{
 		LCOREFATAL("Could not create graphics pipeline layout");
@@ -151,8 +250,11 @@ internal_func b8 lzy_create_graphics_pipeline_layout(VkPipelineLayout *pLayout)
 internal_func b8 lzy_create_graphics_pipeline(VkPipeline *pPipeline, VkShaderModule shaderModuleVertex, VkShaderModule shaderModuleFragment)
 {
 
-	VkPipelineLayout layout;
-	if (!lzy_create_graphics_pipeline_layout(&layout))
+	if (!lzy_create_graphics_pipeline_layout(&rendererState.trianglePipelineLayout,
+                                                 1,
+                                                 &rendererState.vertexBufferLayout,
+                                                 0,
+                                                 NULL))
 	{
 		return false;
 	}
@@ -174,32 +276,10 @@ internal_func b8 lzy_create_graphics_pipeline(VkPipeline *pPipeline, VkShaderMod
 	createInfo.pStages = shaderStageCreateInfos;
 
 	VkPipelineVertexInputStateCreateInfo inputStateCreateInfo = {VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO};
-
 	createInfo.pVertexInputState = &inputStateCreateInfo;
-
-	VkVertexInputBindingDescription stream = {0, 8 * 4, VK_VERTEX_INPUT_RATE_VERTEX};
-	VkVertexInputAttributeDescription attrs[3] = {0};
-
-	attrs[0].location = 0;
-	attrs[0].format = VK_FORMAT_R32G32B32A32_SFLOAT;
-	attrs[0].offset = 0;
-
-	attrs[1].location = 1;
-	attrs[1].format = VK_FORMAT_R32G32B32A32_SFLOAT;
-	attrs[1].offset = 12;
-
-	attrs[2].location = 2;
-	attrs[2].format = VK_FORMAT_R32G32B32A32_SFLOAT;
-	attrs[2].offset = 20;
-
-	inputStateCreateInfo.vertexBindingDescriptionCount = 1;
-	inputStateCreateInfo.pVertexBindingDescriptions = &stream;
-	inputStateCreateInfo.vertexAttributeDescriptionCount = 3;
-	inputStateCreateInfo.pVertexAttributeDescriptions = attrs;
 
 	VkPipelineInputAssemblyStateCreateInfo inputAssemblyCreateInfo = {VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO};
 	inputAssemblyCreateInfo.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-
 	createInfo.pInputAssemblyState = &inputAssemblyCreateInfo;
 
 	VkPipelineViewportStateCreateInfo viewportStateCreateInfo = {VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO};
@@ -233,7 +313,7 @@ internal_func b8 lzy_create_graphics_pipeline(VkPipeline *pPipeline, VkShaderMod
 	dynamicStateCreateInfo.pDynamicStates = dynamicStates;
 
 	createInfo.pDynamicState = &dynamicStateCreateInfo;
-	createInfo.layout = layout;
+	createInfo.layout = rendererState.trianglePipelineLayout;
 	createInfo.renderPass = rendererState.renderPass;
 
 	if (vkCreateGraphicsPipelines(rendererState.device, VK_NULL_HANDLE, 1, &createInfo, NULL, pPipeline) != VK_SUCCESS)
@@ -252,7 +332,9 @@ internal_func b8 lzy_create_shader_module(VkShaderModule *pShaderModule, const c
 		return false;
 	}
 	u64 uFileSize;
-	u32 *pBuffer = lzy_file_map(file, &uFileSize);
+	lzy_file_get_size(file, &uFileSize);
+	u32* pBuffer = lzy_alloc(uFileSize, 4, LZY_MEMORY_TAG_STRING);
+	lzy_file_read(file, pBuffer, uFileSize);
 
 	if ((u64)pBuffer == ~0ull)
 	{
@@ -272,7 +354,7 @@ internal_func b8 lzy_create_shader_module(VkShaderModule *pShaderModule, const c
 		return false;
 	}
 
-	lzy_file_unmap(file, pBuffer);
+	lzy_free(pBuffer, uFileSize, LZY_MEMORY_TAG_STRING);
 	lzy_file_close(file);
 	return true;
 }
@@ -916,17 +998,54 @@ b8 lzy_renderer_init()
 		lzy_create_framebuffer(rendererState.pSwapchainFramebuffers + i, rendererState.pSwapchainImageViews[i], uWidth, uHeight);
 	}
 
-	if (!lzy_create_shader_module(&rendererState.triangleVertexShader, "shaders/triangle_vs.spv") ||
-		!lzy_create_shader_module(&rendererState.triangleFragmentShader, "shaders/triangle_fs.spv"))
+	if (!lzy_create_shader_module(&rendererState.triangleVertexShader, "shaders/triangle.vert.spv") ||
+		!lzy_create_shader_module(&rendererState.triangleFragmentShader, "shaders/triangle.frag.spv"))
 	{
 		return false;
 	}
-
+    
+    
+    VkDescriptorSetLayoutBinding vertexBinding = lzy_create_descriptor_set_layout_binding(0, 
+                                                                                          VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+                                                                                          1,
+                                                                                          VK_SHADER_STAGE_VERTEX_BIT);
+    
+    if(!lzy_create_descriptor_set_layout(&rendererState.vertexBufferLayout,
+                                         0,
+                                         &vertexBinding,
+                                         1))
+    {
+        return false;
+    }
+    
+    
 	if (!lzy_create_graphics_pipeline(&rendererState.trianglePipeline, rendererState.triangleVertexShader, rendererState.triangleFragmentShader))
 	{
 		return false;
 	}
-
+    
+    VkDescriptorPoolSize size = {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 10};
+    
+    if(!lzy_create_descriptor_pool(&rendererState.descriptorPool,
+                                      0,
+                                      10,
+                                      &size,
+                                      1) != VK_SUCCESS)
+    {
+        return false;
+    }
+    
+    
+    if(!lzy_create_descriptor_set(&rendererState.vertexBufferDescriptorSet,
+                                     1,
+                                     rendererState.descriptorPool,
+                                     &rendererState.vertexBufferLayout) != VK_SUCCESS)
+    {
+        return false;
+    }
+    
+    
+    
 	LzyObjContents contents;
 	LzyFile objFile;
 	if (!lzy_file_open(&objFile, "kitten.obj", LZY_FILE_MODE_READ))
@@ -940,7 +1059,7 @@ b8 lzy_renderer_init()
 	VkPhysicalDeviceMemoryProperties memProps;
 	vkGetPhysicalDeviceMemoryProperties(rendererState.physicalDevice, &memProps);
 
-	if (!lzy_create_buffer(&rendererState.vertexBuffer, &memProps, lzy_vector_size(contents.pVertices) * sizeof(*contents.pVertices), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT) ||
+	if (!lzy_create_buffer(&rendererState.vertexBuffer, &memProps, lzy_vector_size(contents.pVertices) * sizeof(*contents.pVertices), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT) ||
 		!lzy_create_buffer(&rendererState.indexBuffer, &memProps, lzy_vector_size(contents.pIndices) * sizeof(u32), VK_BUFFER_USAGE_INDEX_BUFFER_BIT))
 	{
 		return false;
@@ -948,7 +1067,28 @@ b8 lzy_renderer_init()
 
 	lzy_memcpy(rendererState.vertexBuffer.pData, contents.pVertices, lzy_vector_size(contents.pVertices) * sizeof(*contents.pVertices));
 	lzy_memcpy(rendererState.indexBuffer.pData, contents.pIndices, lzy_vector_size(contents.pIndices) * sizeof(u32));
-
+    
+    VkDescriptorBufferInfo bufferInfo = {0};
+    bufferInfo.buffer = rendererState.vertexBuffer.buffer;
+    bufferInfo.offset = 0;
+    bufferInfo.range = rendererState.vertexBuffer.uSize;
+    
+    VkWriteDescriptorSet write = {0};
+    write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    write.dstSet = rendererState.vertexBufferDescriptorSet;
+    write.dstBinding = 0;
+    write.dstArrayElement = 0;
+    write.descriptorCount = 1;
+    write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    write.pBufferInfo = &bufferInfo;
+    
+    vkUpdateDescriptorSets(rendererState.device,
+                           1,
+                           &write,
+                           0,
+                           NULL);
+                           
+    
 	VkCommandBufferAllocateInfo allocInfo = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO};
 	allocInfo.commandPool = rendererState.commandPool;
 	allocInfo.commandBufferCount = 1;
@@ -963,6 +1103,7 @@ b8 lzy_renderer_init()
 	bIsInitialized = true;
 	LCOREINFO("Renderer subsystem initialized");
 	return true;
+    
 }
 
 b8 lzy_renderer_loop()
@@ -1025,7 +1166,16 @@ b8 lzy_renderer_loop()
 
 	vkCmdBindPipeline(rendererState.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, rendererState.trianglePipeline);
 	VkDeviceSize uOffset = 0;
-	vkCmdBindVertexBuffers(rendererState.commandBuffer, 0, 1, &rendererState.vertexBuffer.buffer, &uOffset);
+    
+	vkCmdBindDescriptorSets(rendererState.commandBuffer,
+                            VK_PIPELINE_BIND_POINT_GRAPHICS,
+                            rendererState.trianglePipelineLayout,
+                            0,
+                            1,
+                            rendererState.vertexBufferDescriptorSet,
+                            0,
+                            NULL);
+    //vkCmdBindVertexBuffers(rendererState.commandBuffer, 0, 1, &rendererState.vertexBuffer.buffer, &uOffset);
 	vkCmdBindIndexBuffer(rendererState.commandBuffer, rendererState.indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
 
 	vkCmdDrawIndexed(rendererState.commandBuffer, rendererState.indexBuffer.uSize / sizeof(u32), 1, 0, 0, 0);
