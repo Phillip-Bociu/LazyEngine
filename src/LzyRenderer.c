@@ -84,7 +84,7 @@ lzy_create_descriptor_set_layout_binding(u32 uBinding,
     retval.descriptorType = descriptorType;
     retval.descriptorCount = uDescriptorCount;
     retval.stageFlags = stageFlags;
-    //retval.pImmutableSamplers = 0;
+    retval.pImmutableSamplers = 0;
     
     return retval;
 }

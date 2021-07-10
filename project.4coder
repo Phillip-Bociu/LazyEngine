@@ -57,7 +57,7 @@ commands = {
 },
 
 .build = {
-	.win = "release.bat",
+	.win = "release1.bat",
 	.linux = "./release.sh",
 	.out = "*compilation*",
 	.footer_panel = true,
