@@ -37,9 +37,19 @@ commands = {
 .cursor_at_end = true,
 },
 
+.debug = 
+{
+	.win = "bin\\testd.exe",
+	.linux = "gnome-terminal -- gdb ./bin/testd",
+	.out = "Log.txt",
+	.footer_panel = true,
+	.save_dirty_files = false,
+	.cursor_at_end = true,
+},
+
 .rund = {
 	.win = "bin\\testd.exe",
-	.linux = "./bin/testd",
+	.linux = "gnome-terminal -- ./bin/testd",
 	.out = "Log.txt",
 	.footer_panel = true,
 	.save_dirty_files = false,
@@ -57,7 +67,7 @@ commands = {
 
 .run = {
 	.win = "bin\\test.exe",
-	.linux = "./bin/test",
+	.linux = "gnome-terminal ./bin/test",
 	.out = "Log.txt",
 	.footer_panel = true,
 	.save_dirty_files = false,
@@ -66,7 +76,7 @@ commands = {
 
 .builds = {
 	.win = "compileShaders.bat",
-	.linux = "./bin/test",
+	.linux = "gnome-terminal -- ./compileShaders.sh",
 	.out = "Log.txt",
 	.footer_panel = true,
 	.save_dirty_files = false,
@@ -80,6 +90,7 @@ fkey_command = {
 .F5 = "rund",
 .F6 = "run",
 .F9 = "buildd",
+.F7 = "debug",
 .F10 = "build",
 .F11 = "builds",
 };

@@ -1172,14 +1172,12 @@ b8 lzy_renderer_loop()
                             rendererState.trianglePipelineLayout,
                             0,
                             1,
-                            rendererState.vertexBufferDescriptorSet,
+                            &rendererState.vertexBufferDescriptorSet,
                             0,
                             NULL);
-    //vkCmdBindVertexBuffers(rendererState.commandBuffer, 0, 1, &rendererState.vertexBuffer.buffer, &uOffset);
+
 	vkCmdBindIndexBuffer(rendererState.commandBuffer, rendererState.indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
-
 	vkCmdDrawIndexed(rendererState.commandBuffer, rendererState.indexBuffer.uSize / sizeof(u32), 1, 0, 0, 0);
-
 	vkCmdEndRenderPass(rendererState.commandBuffer);
 
 	VkImageMemoryBarrier renderEndBarrier = lzy_create_image_memory_barrier(rendererState.pSwapchainImages[uImageIndex], VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, 0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
