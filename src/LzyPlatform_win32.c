@@ -14,42 +14,46 @@ typedef struct LzyPlatform_impl
 
 global LARGE_INTEGER iPerfFreq;
 
+void lzy_application_set_framebuffer_size(u16 uX, u16 uY);
+
 internal_func LRESULT LzyWindowProc(HWND hWindow, UINT msg, WPARAM wParam, LPARAM lParam)
 {
 	LRESULT lResult;
 	switch (msg)
 	{
-	case WM_CLOSE:
-	{
-		PostQuitMessage(0);
-		//lResult = DefWindowProc(hWindow, msg, wParam, lParam);
-	}break;
-	case WM_KEYDOWN:
-	{
-		//lzy_get_memstats();
-	}break;
-	default:
-	{
-		//lResult = DefWindowProc(hWindow, msg, wParam, lParam);
-
-	}break;
-	}
+        case WM_CLOSE:
+        {
+            PostQuitMessage(0);
+            //lResult = DefWindowProc(hWindow, msg, wParam, lParam);
+        }break;
+        
+        case WM_KEYDOWN:
+        {
+            //lzy_get_memstats();
+        }break;
+        
+        case WM_SIZE:
+        {
+            u32 uWidth  = LOWORD(lParam);
+            u32 uHeight = HIWORD(lParam);
+            LCORETRACE("New Window Size: %u, %u", uWidth, uHeight);
+            lzy_application_set_framebuffer_size(uWidth, uHeight);
+        }break;
+        
+        default:
+        {
+        }break;    
+        
+    }
 	return DefWindowProc(hWindow, msg, wParam, lParam);
 }
 
 b8 lzy_platform_create(LzyPlatform* pPlatform, const char* pWindowTitle, u16 uResX, u16 uResY)
 {
 	QueryPerformanceFrequency(&iPerfFreq);
-	wchar_t pLongWindowTitle[256];
-	i32 iTitleLen = strlen(pWindowTitle);
-    
-	for (i32 i = 0; i <= iTitleLen; i++)
-	{
-		pLongWindowTitle[i] = pWindowTitle[i];
-	}
 
 	*pPlatform = lzy_alloc(sizeof(LzyPlatform_impl), 8, LZY_MEMORY_TAG_PLATFORM_STATE);
-	LzyPlatform_impl* pState = *pPlatform;
+	LzyPlatform_impl* pState = *(LzyPlatform_impl**)pPlatform;
 
 	WNDCLASS windowClass;
 
@@ -62,7 +66,7 @@ b8 lzy_platform_create(LzyPlatform* pPlatform, const char* pWindowTitle, u16 uRe
 	windowClass.hCursor = NULL;
 	windowClass.hbrBackground = NULL;
 	windowClass.lpszMenuName = NULL;
-	windowClass.lpszClassName = L"LzyWindowClass";
+	windowClass.lpszClassName = "LzyWindowClass";
 
 	if (!RegisterClass(&windowClass))
 	{
@@ -70,7 +74,6 @@ b8 lzy_platform_create(LzyPlatform* pPlatform, const char* pWindowTitle, u16 uRe
 		LERROR("Win32 window class registering error (code#%u)", uErrorCode);
 		return false;
 	}
-	LPCTSTR;
 
 	RECT res = {
 		.left = 100,
@@ -86,8 +89,8 @@ b8 lzy_platform_create(LzyPlatform* pPlatform, const char* pWindowTitle, u16 uRe
 	}
 
 
-	pState->hWindow = CreateWindow(L"LzyWindowClass",
-								   pLongWindowTitle,
+	pState->hWindow = CreateWindow("LzyWindowClass",
+								   pWindowTitle,
 								   WS_OVERLAPPEDWINDOW | WS_VISIBLE,
 								   CW_USEDEFAULT, CW_USEDEFAULT,
 								   res.right - res.left, res.bottom - res.top,
@@ -100,8 +103,8 @@ b8 lzy_platform_create(LzyPlatform* pPlatform, const char* pWindowTitle, u16 uRe
 		LERROR("Win32 window creation error (code#%u)", uErrorCode);
 		return false;
 	}
-
-	return true;
+    
+    return true;
 }
 
 u64 lzy_platform_get_implementation_size()
@@ -111,11 +114,12 @@ u64 lzy_platform_get_implementation_size()
 
 void lzy_platform_get_surface_create_info(LzyPlatform platform, LzyWindowSurfaceCreateInfo* pSurface)
 {
-	LzyPlatform_impl* pState = platform;
+	LzyPlatform_impl* pState = (LzyPlatform_impl*)platform;
 	pSurface->sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
 	pSurface->hinstance = GetModuleHandle(NULL);
 	pSurface->hwnd = pState->hWindow;
 }
+
 VkResult lzy_platform_create_surface(VkInstance instance, const LzyWindowSurfaceCreateInfo* pCreateInfo, const VkAllocationCallbacks* pAllocs, VkSurfaceKHR* pSurface)
 {
 	return vkCreateWin32SurfaceKHR(instance, pCreateInfo, pAllocs, pSurface);
@@ -124,7 +128,7 @@ VkResult lzy_platform_create_surface(VkInstance instance, const LzyWindowSurface
 
 b8 lzy_platform_poll_events(LzyPlatform platform)
 {
-	LzyPlatform_impl* pState = platform;
+	LzyPlatform_impl* pState = (LzyPlatform_impl*)platform;
 	MSG msg;
 	while (PeekMessageA(&msg, NULL, 0, 0, PM_REMOVE))
 	{
@@ -146,7 +150,7 @@ void lzy_platform_shutdown(LzyPlatform platform)
 
 void lzy_platform_get_framebuffer_size(LzyPlatform platform, u16* pX, u16* pY)
 {
-	LzyPlatform_impl* pState = platform;
+	LzyPlatform_impl* pState = (LzyPlatform_impl*)platform;
 	RECT rect;
 	GetWindowRect(pState->hWindow, &rect);
 	if (pX)
@@ -197,6 +201,12 @@ f64 lzy_platform_get_time()
 	LARGE_INTEGER t;
 	QueryPerformanceCounter(&t);
 	return (f64)t.QuadPart / (f64)iPerfFreq.QuadPart;
+}
+
+b8 lzy_platform_change_title(LzyPlatform platform, const char* pWindowTitle)
+{
+    LzyPlatform_impl* pState = (LzyPlatform_impl*)platform;
+    return (SetWindowTextA(pState->hWindow, pWindowTitle) == 0);
 }
 
 #endif

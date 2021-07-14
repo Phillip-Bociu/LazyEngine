@@ -9,7 +9,7 @@
 #include "LzyTime.h"
 #include <stdlib.h>
 #include <string.h>
-
+#include <stdio.h>
 
 typedef struct LzyApplication
 {
@@ -22,7 +22,7 @@ typedef struct LzyApplication
     b8 bIsSuspended;
 } LzyApplication;
 
-global b8 bIsInitialized = false;
+global b8 bApplicationInitialized = false;
 global LzyApplication lzyApp;
 
 internal_func void _lzy_event_init(LzyJob* pJob, void* pArgs_)
@@ -67,7 +67,7 @@ internal_func void _lzy_platform_init(LzyJob* pJob, void* pArgs)
 
 b8 lzy_application_create(LzyGame* pGame)
 {
-    if (bIsInitialized)
+    if (bApplicationInitialized)
     {
         LCOREERROR("%s", "Application was already created");
         return false;
@@ -176,17 +176,21 @@ b8 lzy_application_create(LzyGame* pGame)
         return false;
     }
     
-    bIsInitialized = true;
+    bApplicationInitialized = true;
     
     return true;
 }
 
 void lzy_application_get_framebuffer_size(u16* pX, u16* pY)
 {
-    if (pX)
-        *pX = lzyApp.uResX;
-    if (pY)
-        *pY = lzyApp.uResY;
+    *pX = lzyApp.uResX;
+    *pY = lzyApp.uResY;
+}
+
+void lzy_application_set_framebuffer_size(u16 uX, u16 uY)
+{
+    lzyApp.uResX = uX;    
+    lzyApp.uResY = uY;    
 }
 
 void lzy_application_get_surface_create_info(LzyWindowSurfaceCreateInfo* pSurface)
@@ -202,20 +206,28 @@ VkResult lzy_application_create_surface(VkInstance instance, const LzyWindowSurf
 b8 lzy_application_run()
 {
     f64 fTime = 0.0;
-    u64 uFrameCounter = 0;
+    u64 fFrameCounter = 0;
     f64 fFrameStartTime = 0.0;
     f64 fFrameDuration = 0.0;
+    u64 fAverageFPS = 0;
+    
     while (true)
     {
         fFrameStartTime = lzy_platform_get_time();
+        
         lzy_time_step(&lzyApp.clock);
-        fTime += lzy_time_get_deltatime(lzyApp.clock);
-        if (fTime >= 1.0)
-        {
-            fTime = 0;
-            LCOREERROR("FPS:%llu", uFrameCounter);
-            uFrameCounter = 0;
-        }
+        
+        const f64 fDeltaTime = lzy_time_get_deltatime(lzyApp.clock);
+        fAverageFPS += 1.0 / fDeltaTime;
+        fFrameCounter++;
+        
+        c8 title[1024];
+        sprintf(title, "Frame Time: %5fms Avg. FPS:%llu", 
+                lzy_time_get_deltatime(lzyApp.clock),
+                fAverageFPS / fFrameCounter);
+        
+        lzy_platform_change_title(lzyApp.platform, title);
+        
         lzyApp.bIsRunning = !lzy_platform_poll_events(lzyApp.platform);
         
         if(!lzyApp.bIsRunning)
@@ -223,28 +235,27 @@ b8 lzy_application_run()
         
         if(!lzyApp.bIsSuspended)
         {
-            if(!lzyApp.pGame->fpUpdate(lzyApp.pGame, lzy_time_get_deltatime(lzyApp.clock)))
+            if(!lzyApp.pGame->fpUpdate(lzyApp.pGame, fDeltaTime))
             {
                 LCOREFATAL("%s","Game update failed!");
                 break;
             }
             
-            if(!lzyApp.pGame->fpRender(lzyApp.pGame, lzy_time_get_deltatime(lzyApp.clock)))
+            if(!lzyApp.pGame->fpRender(lzyApp.pGame, fDeltaTime))
             {
                 LCOREFATAL("%s","Game Render failed!");
                 break;
             }
             
-            if(!lzy_renderer_loop())
+            if(!lzy_renderer_loop(fDeltaTime))
             {
                 LCOREFATAL("Rendering error");
                 break;
             }
         }
         
-        uFrameCounter++;
         fFrameDuration = lzy_platform_get_time() - fFrameStartTime;
-        //lzy_platform_sleep(max((1.0/60.0 - fFrameDuration) * 1000.0, 0.0));
+        //lzy_platform_sleep(max((1.0/60.0 - fFrameDuration) * 500.0, 0.0));
     }
     
     lzyApp.bIsRunning = false;

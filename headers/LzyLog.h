@@ -2,9 +2,9 @@
 #include "LzyDefines.h"
 
 #if _DEBUG
-#define LZY_LOG_TRACE_ENABLED
-#define LZY_LOG_INFO_ENABLED
-#define LZY_LOG_WARN_ENABLED
+//#define LZY_LOG_TRACE_ENABLED
+//#define LZY_LOG_INFO_ENABLED
+//#define LZY_LOG_WARN_ENABLED
 #endif
 
 #define LZY_LOG_ERROR_ENABLED

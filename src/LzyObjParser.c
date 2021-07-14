@@ -34,7 +34,7 @@ typedef struct LzyObjHashMap
 }LzyObjHashMap;
 
 
-internal_func u64 lzy_str_to_u64(const c8 * pIter, const c8** pEnd)
+internal_func u64 lzy_str_to_u64(c8 * pIter, c8** pEnd)
 {
 	u64 retval = 0;
     
@@ -55,7 +55,7 @@ internal_func u64 lzy_str_to_u64(const c8 * pIter, const c8** pEnd)
 }
 
 
-internal_func u64 lzy_obj_hash_map_hash_func(u64 uKey[3])
+internal_func u64 lzy_obj_hash_map_hash_func(const u64 uKey[3])
 {
 	return XXH64(uKey, sizeof(uKey[0]) * 3, LZY_HASH_SEED);
 }
@@ -301,7 +301,7 @@ internal_func c8 *lzy_parse_triangle(c8 *pIter, LzyObjHashMap* pHashMap, LzyObjV
 	return pIter;
 }
 
-internal_func c8 *lzy_parse_position(const c8 *pIter, f32 *pPositions)
+internal_func c8 *lzy_parse_position(c8 *pIter, f32 *pPositions)
 {
 	lzy_vector_emplace(pPositions) = strtof(pIter, &pIter);
 	lzy_vector_emplace(pPositions) = strtof(pIter + 1, &pIter);
@@ -310,7 +310,7 @@ internal_func c8 *lzy_parse_position(const c8 *pIter, f32 *pPositions)
 	return pIter;
 }
 
-internal_func c8 *lzy_parse_texture_coords(const c8 *pIter, f32 *pTextureCoords)
+internal_func c8 *lzy_parse_texture_coords(c8 *pIter, f32 *pTextureCoords)
 {
 	lzy_vector_emplace(pTextureCoords) = strtof(pIter, &pIter);
 	lzy_vector_emplace(pTextureCoords) = strtof(pIter + 1, &pIter);
@@ -318,7 +318,7 @@ internal_func c8 *lzy_parse_texture_coords(const c8 *pIter, f32 *pTextureCoords)
 	return pIter;
 }
 
-internal_func c8 *lzy_parse_normals(const c8 *pIter, f32 *pNormals)
+internal_func c8 *lzy_parse_normals(c8 *pIter, f32 *pNormals)
 {
 	lzy_vector_emplace(pNormals) = strtof(pIter, &pIter);
 	lzy_vector_emplace(pNormals) = strtof(pIter + 1, &pIter);
@@ -327,7 +327,7 @@ internal_func c8 *lzy_parse_normals(const c8 *pIter, f32 *pNormals)
 	return pIter;
 }
 
-internal_func c8 *lzy_next_line(const c8 *pIter, const c8* const pEnd)
+internal_func c8 *lzy_next_line(c8 *pIter, const c8* const pEnd)
 {
 	while (*pIter != NULL)
 		pIter++;

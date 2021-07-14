@@ -19,6 +19,7 @@ MAKE_PLATFORM_INDEPENDENT_HANDLE(LzyPlatform);
 
 b8 lzy_platform_create(LzyPlatform* pPlatform, const char* pWindowTitle,u16 uResX, u16 uResY);
 void lzy_platform_shutdown(LzyPlatform platform);
+b8 lzy_platform_change_title(LzyPlatform platform, const char* pWindowTitle);
 b8 lzy_platform_poll_events(LzyPlatform platform);
 void lzy_platform_sleep(u64 uMs);
 

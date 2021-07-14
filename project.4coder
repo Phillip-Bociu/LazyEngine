@@ -39,7 +39,7 @@ commands = {
 
 .debug = 
 {
-	.win = "bin\\testd.exe",
+	.win = ".\bin\testd.exe",
 	.linux = "gnome-terminal -- gdb ./bin/testd",
 	.out = "Log.txt",
 	.footer_panel = true,
@@ -48,7 +48,7 @@ commands = {
 },
 
 .rund = {
-	.win = "bin\\testd.exe",
+	.win = "start powershell .\bin\testd.exe",
 	.linux = "gnome-terminal -- ./bin/testd",
 	.out = "Log.txt",
 	.footer_panel = true,
@@ -66,7 +66,7 @@ commands = {
 },
 
 .run = {
-	.win = "bin\\test.exe",
+	.win = "start powershell .\bin\test.exe",
 	.linux = "gnome-terminal ./bin/test",
 	.out = "Log.txt",
 	.footer_panel = true,

@@ -10,7 +10,7 @@ typedef struct LzyTime
 }LzyTime;
 
 
-b8 lzy_time_start(LzyTime* pTime);
-void lzy_time_step(LzyTime* pTime);
+LAPI b8 lzy_time_start(LzyTime* pTime);
+LAPI void lzy_time_step(LzyTime* pTime);
 
-f64 lzy_time_get_deltatime(LzyTime time);
+LAPI f64 lzy_time_get_deltatime(LzyTime time);

@@ -181,5 +181,5 @@ b8 lzy_get_memstats(c8* pBuffer, u64 uBufferCapacity)
     }
 
     
-    return NULL;
+    return true;
 }

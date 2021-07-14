@@ -15,13 +15,13 @@ typedef struct LzyEventSystem
 	LzyEventListener pUserListeners[LZY_MAX_USER_LISTENERS];
 } LzyEventSystem;
 
-global b8 bIsInitialized = false;
+global b8 bEventInitialized = false;
 global LzyEventSystem *pEventSystem;
 
 b8 lzy_event_init()
 {
 	pEventSystem = lzy_alloc(sizeof(LzyEventSystem), 8, LZY_MEMORY_TAG_EVENT_SYSTEM_STATE);
-	bIsInitialized = true;
+	bEventInitialized = true;
 	LINFO("Event Subsystem Initialized");
 	return true;
 }

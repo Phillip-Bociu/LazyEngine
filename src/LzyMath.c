@@ -481,7 +481,7 @@ LzyMat4f lzy_mat4f_multiply(LzyMat4f a, LzyMat4f b)
 		__m128 brod3 = _mm_set1_ps(a.el[i][2]);
 		__m128 brod4 = _mm_set1_ps(a.el[i][3]);
 		__m128 row   = _mm_fmadd_ps(brod1, b.xmms[0], _mm_fmadd_ps(brod2, b.xmms[1], _mm_fmadd_ps(brod3, b.xmms[2], _mm_mul_ps(brod4, b.xmms[3]))));
-		_mm_store_ps(&retval.el[4 * i], row);
+		_mm_store_ps(&retval.el[i][0], row);
 	}
     
 	return retval;

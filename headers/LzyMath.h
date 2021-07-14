@@ -103,3 +103,5 @@ LAPI LzyMat4f lzy_mat4f_scalar_multiply(LzyMat4f a, f32 b);
 LAPI LzyMat4f lzy_mat4f_scalar_add(LzyMat4f a, f32 b);
 LAPI LzyMat4f lzy_mat4f_scalar_sub(LzyMat4f a, f32 b);
 LAPI LzyMat4f lzy_mat4f_scalar_divide(LzyMat4f a, f32 b);
+
+

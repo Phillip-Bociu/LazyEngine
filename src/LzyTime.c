@@ -9,7 +9,8 @@ b8 lzy_time_start(LzyTime* pTime)
 	pTime->fCurrentTime = 0.0;
 	pTime->fLastTime = 0.0;
 	pTime->fTimeScale = 1.0;
-	return true;
+    
+    return true;
 }
 void lzy_time_step(LzyTime* pTime)
 {
