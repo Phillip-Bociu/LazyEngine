@@ -1,8 +1,9 @@
+#ifdef _WIN32
 #include "LzyDefines.h"
 #include "LzyLog.h"
 #include "LzyPlatform.h"
 #include "LzyMemory.h"
-#ifdef _WIN32
+#include "LzyEvent.h"
 #include <Windows.h>
 #include <stdlib.h>
 #include <string.h>
@@ -16,20 +17,32 @@ global LARGE_INTEGER iPerfFreq;
 
 void lzy_application_set_framebuffer_size(u16 uX, u16 uY);
 
-internal_func LRESULT LzyWindowProc(HWND hWindow, UINT msg, WPARAM wParam, LPARAM lParam)
+
+internal_func
+LRESULT LzyWindowProc(HWND hWindow, 
+                      UINT msg,
+                      WPARAM wParam,
+                      LPARAM lParam)
 {
 	LRESULT lResult;
 	switch (msg)
 	{
+        
         case WM_CLOSE:
         {
             PostQuitMessage(0);
-            //lResult = DefWindowProc(hWindow, msg, wParam, lParam);
         }break;
         
         case WM_KEYDOWN:
         {
-            //lzy_get_memstats();
+            LzyEventData eData = {.u64 = {wParam, lParam & 0xFFFF}};
+            lzy_event_emit(LZY_EVENT_CODE_KEY_PRESS, (void*)1, eData);
+        }break;
+        
+        case WM_KEYUP:
+        {
+            LzyEventData eData = {.u64 = {wParam, lParam & 0xFFFF}};
+            lzy_event_emit(LZY_EVENT_CODE_KEY_RELEASE, (void*)1, eData);
         }break;
         
         case WM_SIZE:
@@ -38,6 +51,7 @@ internal_func LRESULT LzyWindowProc(HWND hWindow, UINT msg, WPARAM wParam, LPARA
             u32 uHeight = HIWORD(lParam);
             LCORETRACE("New Window Size: %u, %u", uWidth, uHeight);
             lzy_application_set_framebuffer_size(uWidth, uHeight);
+            return 0;    
         }break;
         
         default:

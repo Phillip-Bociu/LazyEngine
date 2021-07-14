@@ -1,4 +1,5 @@
 #include "LzyEvent.h"
+#include "LzyLog.h"
 #include "LzyMemory.h"
 
 typedef struct LzyEventListener
@@ -21,8 +22,9 @@ global LzyEventSystem *pEventSystem;
 b8 lzy_event_init()
 {
 	pEventSystem = lzy_alloc(sizeof(LzyEventSystem), 8, LZY_MEMORY_TAG_EVENT_SYSTEM_STATE);
+    LCOREINFO("%llu, %llu", pEventSystem->uCoreListenerCount, pEventSystem->uUserListenerCount);
 	bEventInitialized = true;
-	LINFO("Event Subsystem Initialized");
+	LCOREINFO("Event Subsystem Initialized");
 	return true;
 }
 
@@ -73,6 +75,7 @@ b8 lzy_event_core_deregister(LzyfpOnEvent fpOnEvent, void *pListener)
 
 b8 lzy_event_register(LzyfpOnEvent fpOnEvent, void *pListener)
 {
+   
 	LASSERT(pEventSystem->uUserListenerCount < LZY_MAX_USER_LISTENERS, "Surpassed core event listener capacity!");
 	pEventSystem->pUserListeners[pEventSystem->uUserListenerCount].fpCallback = fpOnEvent;
 	pEventSystem->pUserListeners[pEventSystem->uUserListenerCount].pListener = pListener;
@@ -82,8 +85,8 @@ b8 lzy_event_register(LzyfpOnEvent fpOnEvent, void *pListener)
 }
 b8 lzy_event_deregister(LzyfpOnEvent fpOnEvent, void *pListener)
 {
+   
 	LCOREASSERT(pEventSystem->uUserListenerCount > 0, "No more user listeners to deregister!");
-
 	LzyEventListener *pToRemove = pEventSystem->pUserListeners;
 	const LzyEventListener *pEnd = pEventSystem->pUserListeners + pEventSystem->uUserListenerCount;
 
@@ -126,12 +129,12 @@ b8 lzy_event_emit(u16 uCode, void *pSender, LzyEventData eData)
 
 	pBegin = pEventSystem->pUserListeners;
 	pEnd   = pEventSystem->pUserListeners + pEventSystem->uUserListenerCount;
-
+    
 	for (; pBegin != pEnd; pBegin++)
 	{
 		if (pBegin->fpCallback(uCode, pSender, pBegin->pListener, eData))
 		{
-			break;
+			return true;
 		}
 	}
 

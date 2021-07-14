@@ -1,5 +1,6 @@
 #include "LzyMath.h"
 #include "LzyLog.h"
+#include <math.h>
 #include <xmmintrin.h>
 #include <pmmintrin.h>
 #include <immintrin.h>
@@ -551,3 +552,52 @@ LzyMat4f lzy_mat4f_scalar_divide(LzyMat4f a, f32 b)
 }
 
 
+LzyMat4f lzy_mat4f_perspective(f32 fFov, f32 fAspectRatio, f32 fNear, f32 fFar)
+{
+    LzyMat4f retval;
+    
+    const f32 f  = 1.0f / tanf(fFov * 0.5f);
+    const f32 fn = 1.0f / (fNear - fFar);
+    
+    retval.xmms[0] = _mm_set_ps(f / fAspectRatio, 0, 0, 0);
+    retval.xmms[1] = _mm_set_ps(0, f, 0, 0);
+    retval.xmms[2] = _mm_set_ps(0, 0, -(fNear + fFar) * fn, 1.0f);
+    retval.xmms[3] = _mm_set_ps(0, 0, 2.0f * fNear * fFar * fn, 0);
+    
+    return retval;
+}
+
+LzyMat4f lzy_mat4f_rotate(LzyVec3f eulerAngles)
+{
+    LzyMat4f retval;
+    
+    f32 cx, cy, cz,
+    sx, sy, sz, czsx, cxcz, sysz;
+    
+    sx   = sinf(angles[0]); cx = cosf(angles[0]);
+    sy   = sinf(angles[1]); cy = cosf(angles[1]);
+    sz   = sinf(angles[2]); cz = cosf(angles[2]);
+    
+    czsx = cz * sx;
+    cxcz = cx * cz;
+    sysz = sy * sz;
+    
+    retval.xmms[0] = _mm_set_ps(cy * cz, 
+                                czsx * sy + cx * sz,
+                               -cxcz * sy + sx * sz,
+                                0.0f);
+    
+    retval.xmms[1] = _mm_set_ps(-cy * sz,
+                                cxcz - sx * sysz,
+                                czsx + cx * sysz,
+                                0.0f);
+    
+    retval.xmms[2] = _mm_set_ps(sy,
+                                -cy * sx,
+                                cx * cy,
+                                0.0f);
+    
+    retval.xmms[3] = _mm_set_ps(0, 0, 0, 1);
+    
+    return mat;
+}

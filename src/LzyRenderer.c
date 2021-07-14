@@ -18,6 +18,41 @@ typedef struct LzyTestPushConstants
     f32 x,y;
 }LzyTestPushConstants;
 
+LzyTestPushConstants pc;
+
+b8 pressed[4];
+
+b8 inputEvent(u16 uCode, void *pSender, void* pListener, LzyEventData eData)
+{
+    if(uCode == LZY_EVENT_CODE_KEY_PRESS)
+    {
+        
+        if(eData.u64[0] == 'A')
+            pressed[0] = true;
+        else if(eData.u64[0] == 'D')
+            pressed[1] = true;
+        else if(eData.u64[0] == 'W')
+            pressed[2] = true;
+        else if(eData.u64[0] == 'S')
+            pressed[3] = true;
+            
+    } else if(uCode == LZY_EVENT_CODE_KEY_RELEASE)
+    {
+        
+        if(eData.u64[0] == 'A')
+            pressed[0] = false;
+        else if(eData.u64[0] == 'D')
+            pressed[1] = false;
+        else if(eData.u64[0] == 'W')
+            pressed[2] = false;
+        else if(eData.u64[0] == 'S')
+            pressed[3] = false;
+        
+    }
+    
+    return false;
+}
+
 typedef struct LzyQueueFamilyIndices
 {
 	u8 uGraphicsIndex;
@@ -1293,6 +1328,13 @@ b8 lzy_renderer_recreate_swapchain()
 
 b8 lzy_renderer_init()
 {
+    
+    if(!lzy_event_core_register(inputEvent, NULL))
+    {
+        LCOREFATAL("Could not register event");
+        return false;
+    }
+    
 	LCOREASSERT(!bRendererInitialized, "Renderer Subsystem already initialized");
     
 	u16 uWidth, uHeight;
@@ -1707,6 +1749,7 @@ b8 lzy_renderer_init()
 
 b8 lzy_renderer_loop(f64 fDeltaTime)
 {    
+    
     vkWaitForFences(rendererState.device,
                     1,
                     &rendererState.swapchainInfo.pInFlightFences[rendererState.uFrameIndex],
@@ -1817,18 +1860,22 @@ b8 lzy_renderer_loop(f64 fDeltaTime)
                             0,
                             NULL);
     
-    static LzyTestPushConstants pc = {0,0};
+    if(pressed[0] == true)
+    {
+        pc.x += fDeltaTime;
+    } else if(pressed[1] == true)
+    {
+        pc.x -= fDeltaTime;
+    }    
+        
+    if(pressed[2] == true)
+    {
+        pc.y += fDeltaTime;
+    } else if(pressed[3] == true)
+    {        
+        pc.y -= fDeltaTime;
+    }
     
-    static f64 fTime = 0;
-    static f64 fTime2 = 3.14159;
-    
-    fTime += fDeltaTime;
-    fTime2 += fDeltaTime;
-    LCOREINFO("%fs",fTime);
-    
-    pc.x = fTime;
-    pc.y = fTime;
-	
     vkCmdPushConstants(rendererState.swapchainInfo.pCommandBuffers[uImageIndex],
                        rendererState.trianglePipelineLayout,
                        VK_SHADER_STAGE_VERTEX_BIT,
@@ -1841,16 +1888,16 @@ b8 lzy_renderer_loop(f64 fDeltaTime)
 	
     vkCmdDrawIndexed(rendererState.swapchainInfo.pCommandBuffers[uImageIndex], rendererState.indexBuffer.uSize / sizeof(u32), 1, 0, 0, 0);
 	
-    
-    pc.x = fTime2;
-    pc.y = fTime2;	
+    LzyTestPushConstants pc2 = pc;
+    pc2.x += 3.14159f;
+    pc2.y += 3.14159f;	
     
     vkCmdPushConstants(rendererState.swapchainInfo.pCommandBuffers[uImageIndex],
                        rendererState.trianglePipelineLayout,
                        VK_SHADER_STAGE_VERTEX_BIT,
                        0,
                        sizeof(LzyTestPushConstants),
-                       &pc);
+                       &pc2);
     
     
     vkCmdDrawIndexed(rendererState.swapchainInfo.pCommandBuffers[uImageIndex], rendererState.indexBuffer.uSize / sizeof(u32), 1, 0, 0, 0);

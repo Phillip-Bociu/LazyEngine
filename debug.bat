@@ -17,8 +17,8 @@ echo clang bin/cppdepsd.o src/LzyEngine_win32.c %compilerFlags% -o bin/%assembly
 clang bin/cppdepsd.o src/LzyEngine_win32.c %compilerFlags% -o bin/%assembly%.dll %includeFlags% %linkerFlags%
 
 echo Building Test 
-REM echo clang test/test.c %compilerFlags2% -o bin/testd.exe %includeFlags% %linkerFlags% -Lbin -l%assembly%
-REM clang test/test.c %compilerFlags2% -o bin/testd.exe %includeFlags% %linkerFlags% -Lbin -l%assembly%
+echo clang test/test.c %compilerFlags2% -o bin/testd.exe %includeFlags% %linkerFlags% -Lbin -l%assembly%
+clang test/test.c %compilerFlags2% -o bin/testd.exe %includeFlags% %linkerFlags% -Lbin -l%assembly%
 
 pause
 exit

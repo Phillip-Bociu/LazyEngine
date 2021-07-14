@@ -48,7 +48,7 @@ void main()
 					 v[gl_VertexIndex].ny, 
 					 v[gl_VertexIndex].nz);
 
-	gl_Position = transform * transform1 * vec4(pos, 1.0) + vec4(cos(pushConst.x), sin(pushConst.y), 0.5,0.0);
+	gl_Position = transform * transform1 * vec4(pos, 1.0) + vec4(cos(pushConst.x), sin(pushConst.y), 0.5 + sin(pushConst.x + pushConst.y),0.0);
 	vColor = vec4(norm,1.0); 
 
 }

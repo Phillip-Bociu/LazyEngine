@@ -108,7 +108,6 @@ b8 lzy_application_create(LzyGame* pGame)
     lzyApp.bIsSuspended = false;
     
     
-    
     //Subsystem Initializations
 #if 0
     
@@ -154,7 +153,7 @@ b8 lzy_application_create(LzyGame* pGame)
     LCOREINFO("Gata");
     
 #else
-    
+    LCOREINFO("Initializing Event System?");
     if(!lzy_event_init())
     {
         LCOREFATAL("Could not initialize event subsystem!");
@@ -166,6 +165,7 @@ b8 lzy_application_create(LzyGame* pGame)
         LCOREFATAL("Could not initialize renderer subsystem!");
         return false;
     }
+    
 #endif
     
     //TODO Memory Stage 2
@@ -246,16 +246,10 @@ b8 lzy_application_run()
                 LCOREFATAL("%s","Game Render failed!");
                 break;
             }
-            
-            if(!lzy_renderer_loop(fDeltaTime))
-            {
-                LCOREFATAL("Rendering error");
-                break;
-            }
         }
         
         fFrameDuration = lzy_platform_get_time() - fFrameStartTime;
-        //lzy_platform_sleep(max((1.0/60.0 - fFrameDuration) * 500.0, 0.0));
+        lzy_platform_sleep(max((1.0/60.0 - fFrameDuration) * 500.0, 0.0));
     }
     
     lzyApp.bIsRunning = false;

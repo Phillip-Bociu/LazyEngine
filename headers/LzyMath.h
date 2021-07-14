@@ -96,6 +96,7 @@ LAPI LzyVec4f lzy_vec4f_scalar_divide(LzyVec4f a, f32 b);
 LAPI LzyVec4f lzy_vec4f_scalar_add(LzyVec4f a, f32 b);
 LAPI LzyVec4f lzy_vec4f_scalar_sub(LzyVec4f a, f32 b);
 
+LAPI LzyMat4f lzy_mat4f_identity();
 LAPI LzyMat4f lzy_mat4f_multiply(LzyMat4f a, LzyMat4f b);
 LAPI LzyMat4f lzy_mat4f_add(LzyMat4f a, LzyMat4f b);
 LAPI LzyMat4f lzy_mat4f_sub(LzyMat4f a, LzyMat4f b);
@@ -104,4 +105,8 @@ LAPI LzyMat4f lzy_mat4f_scalar_add(LzyMat4f a, f32 b);
 LAPI LzyMat4f lzy_mat4f_scalar_sub(LzyMat4f a, f32 b);
 LAPI LzyMat4f lzy_mat4f_scalar_divide(LzyMat4f a, f32 b);
 
+LAPI LzyMat4f lzy_mat4f_rotate(LzyVec3f eulerAngles);
+LAPI LzyMat4f lzy_mat4f_translate(LzyMat4f mat, LzyVec3f position);
+LAPI LzyMat4f lzy_mat4f_scale(LzyMat4f mat, LzyVec3f scale);
+LAPI LzyMat4f lzy_mat4f_perspective(f32 fFov, f32 fAspectRatio, f32 fNear, f32 fFar);
 
