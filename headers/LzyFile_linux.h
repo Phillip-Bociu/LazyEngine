@@ -9,7 +9,4 @@ typedef struct LzyFile
 	b32 bIsBinary;
 }LzyFile;
 
-
-LAPI b8 lzy_thread_create(LzyThread* pThread, void*(*fpRoutine)(void* pData), void* pArgs);
-
 #endif

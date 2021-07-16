@@ -1,7 +1,7 @@
 #pragma once
+#include "LzyDefines.h"
 #include "LzyFile_linux.h"
 #include "LzyFile_win32.h"
-#include "LzyDefines.h"
 
 typedef enum LzyFileMode
 {

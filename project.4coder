@@ -31,7 +31,7 @@ commands = {
 
 .buildd = {
 .win = "debug1.bat",
-.linux = "gnome-terminal -- bash -c \"./debug.sh; exec bash\" ",
+.linux = "gnome-terminal -- ./debug.sh",
 .out = "*compilation*",
 .footer_panel = true,
 .save_dirty_files = true,
@@ -59,7 +59,7 @@ commands = {
 
 .build = {
 	.win = "release1.bat",
-	.linux = "./release.sh",
+	.linux = "gnome-terminal -- ./release.sh",
 	.out = "*compilation*",
 	.footer_panel = true,
 	.save_dirty_files = true,

@@ -30,11 +30,15 @@ void onResize(LzyGame* pGame, u16 uResX, u16 uResy)
 
 b8 create_game(LzyGame* pGame)
 {
-    LzyApplicationConfig appConfig = {};
-    appConfig.pApplicationName = "Game :DDD";
-    appConfig.uResX = 1270;
-    appConfig.uResY = 720;
+    pGame->appConfig.pApplicationName = "Game :DDD";
+    pGame->appConfig.uResX = 1270;
+    pGame->appConfig.uResY = 720;
     
+    pGame->fpStart = gameStart;
+    pGame->fpUpdate = gameUpdate;
+    pGame->fpRender = gameRender;
+    pGame->fpOnResize = onResize;
+ 
     return true;
 }
 

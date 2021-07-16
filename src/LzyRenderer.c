@@ -22,8 +22,6 @@ typedef struct LzyTestPushConstants
 
 LzyTestPushConstants pc;
 
-b8 pressed[4];
-
 b8 inputEvent(u16 uCode, void *pSender, void* pListener, LzyEventData eData)
 {
     if(uCode == LZY_EVENT_CODE_KEY_PRESS)

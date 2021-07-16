@@ -1,4 +1,6 @@
 #ifdef __linux__
+
+#include "LzyInput.c"
 #include "LzyPlatform_linux.c"
 #include "LzyLog_linux.c"
 #include "LzyThread_linux.c"

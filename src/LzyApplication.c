@@ -93,6 +93,8 @@ b8 lzy_application_create(LzyGame* pGame)
         return false;
     }
     
+    
+    
     if (!lzy_platform_create(&lzyApp.platform,
                              pGame->appConfig.pApplicationName,
                              pGame->appConfig.uResX,
@@ -249,7 +251,7 @@ b8 lzy_application_run()
         }
         
         fFrameDuration = lzy_platform_get_time() - fFrameStartTime;
-        //lzy_platform_sleep(max((1.0/60.0 - fFrameDuration) * 500.0, 0.0));
+        lzy_platform_sleep(max((1.0/60.0 - fFrameDuration) * 500.0, 0.0));
     }
     
     lzyApp.bIsRunning = false;
