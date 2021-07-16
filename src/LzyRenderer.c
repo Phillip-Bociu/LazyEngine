@@ -6,6 +6,7 @@
 #include "LzyApplication.h"
 #include "LzyMemory.h"
 #include "LzyFile.h"
+#include "LzyMath.h"
 #include "deps/vma/vk_mem_alloc.h"
 #include <vulkan/vulkan.h>
 #include <string.h>
@@ -15,6 +16,7 @@
 
 typedef struct LzyTestPushConstants
 {
+    LzyMat4f viewMatrix;
     f32 x,y;
 }LzyTestPushConstants;
 
@@ -453,11 +455,13 @@ internal_func b8 lzy_create_graphics_pipeline(VkPipeline *pPipeline, VkShaderMod
     
 	VkPipelineRasterizationStateCreateInfo rasterizationStateCreateInfo = {VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO};
 	rasterizationStateCreateInfo.lineWidth = 1.0f;
+    rasterizationStateCreateInfo.cullMode = VK_CULL_MODE_BACK_BIT;
 	createInfo.pRasterizationState = &rasterizationStateCreateInfo;
-    
+        
 	VkPipelineMultisampleStateCreateInfo multisampleStateCreateInfo = {VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO};
 	multisampleStateCreateInfo.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
-	createInfo.pMultisampleState = &multisampleStateCreateInfo;
+	
+    createInfo.pMultisampleState = &multisampleStateCreateInfo;
     
 	VkPipelineDepthStencilStateCreateInfo depthStencilStateCreateInfo = {VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO};
     depthStencilStateCreateInfo.depthTestEnable = VK_TRUE;
@@ -1323,11 +1327,21 @@ b8 lzy_renderer_recreate_swapchain()
         }
 	}  
     
+    
+    pc.viewMatrix = lzy_mat4f_perspective(45.0f, (f32)uWidth /(f32) uHeight, 0.01f, 100.0f);
+
     return true;
 }
 
 b8 lzy_renderer_init()
 {
+    
+	u16 uWidth, uHeight;
+	lzy_application_get_framebuffer_size(&uWidth, &uHeight);
+    
+    LCOREINFO("%u, %u", uWidth, uHeight);
+    
+    pc.viewMatrix = lzy_mat4f_perspective(45.0f, (f32)uWidth /(f32) uHeight, 0.01f, 100.0f);
     
     if(!lzy_event_core_register(inputEvent, NULL))
     {
@@ -1336,9 +1350,6 @@ b8 lzy_renderer_init()
     }
     
 	LCOREASSERT(!bRendererInitialized, "Renderer Subsystem already initialized");
-    
-	u16 uWidth, uHeight;
-	lzy_application_get_framebuffer_size(&uWidth, &uHeight);
     
 	const char *ppExtensionNames[] = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
     
@@ -1749,7 +1760,6 @@ b8 lzy_renderer_init()
 
 b8 lzy_renderer_loop(f64 fDeltaTime)
 {    
-    
     vkWaitForFences(rendererState.device,
                     1,
                     &rendererState.swapchainInfo.pInFlightFences[rendererState.uFrameIndex],
@@ -1876,6 +1886,10 @@ b8 lzy_renderer_loop(f64 fDeltaTime)
         pc.y -= fDeltaTime;
     }
     
+    LzyVec3f pos = {pc.x, pc.y, 0};
+    LzyMat4f viewMat = pc.viewMatrix;
+    //pc.viewMatrix = lzy_mat4f_mul(pc.viewMatrix, lzy_mat4f_translate(pos));
+    
     vkCmdPushConstants(rendererState.swapchainInfo.pCommandBuffers[uImageIndex],
                        rendererState.trianglePipelineLayout,
                        VK_SHADER_STAGE_VERTEX_BIT,
@@ -1887,10 +1901,17 @@ b8 lzy_renderer_loop(f64 fDeltaTime)
     vkCmdBindIndexBuffer(rendererState.swapchainInfo.pCommandBuffers[uImageIndex], rendererState.indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
 	
     vkCmdDrawIndexed(rendererState.swapchainInfo.pCommandBuffers[uImageIndex], rendererState.indexBuffer.uSize / sizeof(u32), 1, 0, 0, 0);
-	
+	pc.viewMatrix = viewMat;
     LzyTestPushConstants pc2 = pc;
     pc2.x += 3.14159f;
     pc2.y += 3.14159f;	
+    
+    
+    pos.x = pc2.x;
+    pos.y = pc2.y;
+    
+    viewMat = pc2.viewMatrix;
+    //pc2.viewMatrix = lzy_mat4f_mul(pc2.viewMatrix, lzy_mat4f_translate(pos));
     
     vkCmdPushConstants(rendererState.swapchainInfo.pCommandBuffers[uImageIndex],
                        rendererState.trianglePipelineLayout,

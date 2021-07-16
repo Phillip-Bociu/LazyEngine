@@ -59,7 +59,7 @@ LzyVec2f lzy_vec2f_sub(LzyVec2f a, LzyVec2f b)
 	return m1.retval;
 }
 
-LzyVec2f lzy_vec2f_multiply(LzyVec2f a, LzyVec2f b)
+LzyVec2f lzy_vec2f_mul(LzyVec2f a, LzyVec2f b)
 {
     
 	union
@@ -113,7 +113,7 @@ f32 lzy_vec2f_dot_product(LzyVec2f a, LzyVec2f b)
 	return  _mm_cvtss_f32(sums);
 }
 
-LzyVec2f lzy_vec2f_scalar_multiply(LzyVec2f a, f32 b)
+LzyVec2f lzy_vec2f_scalar_mul(LzyVec2f a, f32 b)
 {
 	union
 	{
@@ -205,7 +205,7 @@ LzyVec3f lzy_vec3f_sub(LzyVec3f a, LzyVec3f b)
 	return m1.retval;
 }
 
-LzyVec3f lzy_vec3f_multiply(LzyVec3f a, LzyVec3f b)
+LzyVec3f lzy_vec3f_mul(LzyVec3f a, LzyVec3f b)
 {
     
 	union
@@ -260,7 +260,7 @@ f32		 lzy_vec3f_dot_product(LzyVec3f a, LzyVec3f b)
 	return  _mm_cvtss_f32(sums);
 }
 
-LzyVec3f lzy_vec3f_scalar_multiply(LzyVec3f a, f32 b)
+LzyVec3f lzy_vec3f_scalar_mul(LzyVec3f a, f32 b)
 {
 	union
 	{
@@ -353,7 +353,7 @@ LzyVec4f lzy_vec4f_sub(LzyVec4f a, LzyVec4f b)
 	return m1.retval;
 }
 
-LzyVec4f lzy_vec4f_multiply(LzyVec4f a, LzyVec4f b)
+LzyVec4f lzy_vec4f_mul(LzyVec4f a, LzyVec4f b)
 {
     
 	union
@@ -408,7 +408,7 @@ f32		 lzy_vec4f_dot_product(LzyVec4f a, LzyVec4f b)
 	return  _mm_cvtss_f32(sums);
 }
 
-LzyVec4f lzy_vec4f_scalar_multiply(LzyVec4f a, f32 b)
+LzyVec4f lzy_vec4f_scalar_mul(LzyVec4f a, f32 b)
 {
 	union
 	{
@@ -470,7 +470,7 @@ LzyVec4f lzy_vec4f_scalar_sub(LzyVec4f a, f32 b)
 }
 
 
-LzyMat4f lzy_mat4f_multiply(LzyMat4f a, LzyMat4f b)
+LzyMat4f lzy_mat4f_mul(LzyMat4f a, LzyMat4f b)
 {
     
 	LzyMat4f retval;
@@ -508,7 +508,7 @@ LzyMat4f lzy_mat4f_sub(LzyMat4f a, LzyMat4f b)
 	return a;
 }
 
-LzyMat4f lzy_mat4f_scalar_multiply(LzyMat4f a, f32 b)
+LzyMat4f lzy_mat4f_scalar_mul(LzyMat4f a, f32 b)
 {
 	__m128 c = _mm_set1_ps(b);
 	a.xmms[0] = _mm_mul_ps(a.xmms[0], c);
@@ -602,7 +602,44 @@ LzyMat4f lzy_mat4f_rotate(LzyVec3f eulerAngles)
                                 -cy * sx,
                                 sy
                                 );
+    retval.xmms[3] = _mm_set_ps(1, 0, 0, 0);
     
+    return retval;
+}
+
+LzyMat4f lzy_mat4f_translate(LzyVec3f position)
+{
+    LzyMat4f retval;
+    
+    retval.xmms[0] = _mm_set_ps(position.x, 0, 0, 1);
+    retval.xmms[1] = _mm_set_ps(position.y, 0, 1, 0);
+    retval.xmms[2] = _mm_set_ps(position.z, 1, 0, 0);
+    retval.xmms[3] = _mm_set_ps(1, 0, 0, 0);
+    
+    return retval;
+}
+
+
+LzyMat4f lzy_mat4f_scale(LzyVec3f scale)
+{
+    LzyMat4f retval;
+    
+    retval.xmms[0] = _mm_set_ps(0, 0, 0, scale.x);
+    retval.xmms[1] = _mm_set_ps(0, 0, scale.y, 0);
+    retval.xmms[2] = _mm_set_ps(0, scale.z, 0, 0);
+    retval.xmms[3] = _mm_set_ps(1, 0, 0, 0);
+    
+    return retval;
+}
+
+
+LzyMat4f lzy_mat4f_identity()
+{
+    LzyMat4f retval;
+    
+    retval.xmms[0] = _mm_set_ps(0, 0, 0, 1);
+    retval.xmms[1] = _mm_set_ps(0, 0, 1, 0);
+    retval.xmms[2] = _mm_set_ps(0, 1, 0, 0);
     retval.xmms[3] = _mm_set_ps(1, 0, 0, 0);
     
     return retval;
