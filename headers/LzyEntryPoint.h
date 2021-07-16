@@ -42,13 +42,11 @@ int main()
         return 1;
     }
     
-    
-    
     if(!lzy_application_run())
     {
         LCOREFATAL("%s", "Application crashed!");
         return 2;
     }
-
+    
     return 0;
 }

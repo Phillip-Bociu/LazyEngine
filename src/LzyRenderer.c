@@ -35,7 +35,7 @@ b8 inputEvent(u16 uCode, void *pSender, void* pListener, LzyEventData eData)
             pressed[2] = true;
         else if(eData.u64[0] == 'S')
             pressed[3] = true;
-            
+        
     } else if(uCode == LZY_EVENT_CODE_KEY_RELEASE)
     {
         
@@ -64,8 +64,8 @@ typedef struct LzyQueueFamilyIndices
 //TODO: Optimize this with bitsets
 typedef struct LzySwapchainSupportDetails
 {
-	VkSurfaceFormatKHR pFormats[VK_FORMAT_RANGE_SIZE];
-	VkPresentModeKHR pPresentModes[VK_PRESENT_MODE_RANGE_SIZE_KHR];
+	VkSurfaceFormatKHR pFormats[VK_FORMAT_ASTC_12x12_SRGB_BLOCK + 1];
+	VkPresentModeKHR pPresentModes[VK_PRESENT_MODE_FIFO_RELAXED_KHR + 1];
 	u32 uFormatCount;
 	u32 uPresentModeCount;
 	VkSurfaceCapabilitiesKHR surfaceCapabilities;
@@ -1755,7 +1755,7 @@ b8 lzy_renderer_loop(f64 fDeltaTime)
                     &rendererState.swapchainInfo.pInFlightFences[rendererState.uFrameIndex],
                     VK_TRUE,
                     ~0ull);
-
+    
     u32 uImageIndex;
     VkResult result = vkAcquireNextImageKHR(rendererState.device,
                                             rendererState.swapchainInfo.swapchain,
@@ -1867,7 +1867,7 @@ b8 lzy_renderer_loop(f64 fDeltaTime)
     {
         pc.x -= fDeltaTime;
     }    
-        
+    
     if(pressed[2] == true)
     {
         pc.y += fDeltaTime;

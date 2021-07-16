@@ -3,8 +3,6 @@
 #include "LzyThread_win32.h"
 #include "LzyDefines.h"
 
-LAPI b8 lzy_thread_create(LzyThread* pThread, unsigned long(*fpRoutine)(void* pData), void* pArgs);
-
 LAPI b8 lzy_mutex_init(LzyMutex* pMutex);
 LAPI b8 lzy_mutex_lock(LzyMutex* pMutex);
 LAPI b8 lzy_mutex_unlock(LzyMutex* pMutex);

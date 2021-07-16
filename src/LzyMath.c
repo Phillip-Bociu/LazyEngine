@@ -559,10 +559,10 @@ LzyMat4f lzy_mat4f_perspective(f32 fFov, f32 fAspectRatio, f32 fNear, f32 fFar)
     const f32 f  = 1.0f / tanf(fFov * 0.5f);
     const f32 fn = 1.0f / (fNear - fFar);
     
-    retval.xmms[0] = _mm_set_ps(f / fAspectRatio, 0, 0, 0);
-    retval.xmms[1] = _mm_set_ps(0, f, 0, 0);
-    retval.xmms[2] = _mm_set_ps(0, 0, -(fNear + fFar) * fn, 1.0f);
-    retval.xmms[3] = _mm_set_ps(0, 0, 2.0f * fNear * fFar * fn, 0);
+    retval.xmms[0] = _mm_set_ps(0, 0, 0, f / fAspectRatio);
+    retval.xmms[1] = _mm_set_ps(0, 0, f, 0);
+    retval.xmms[2] = _mm_set_ps(1,  -(fNear + fFar) * fn,0, 0);
+    retval.xmms[3] = _mm_set_ps(0, 2.0f * fNear * fFar * fn, 0, 0);
     
     return retval;
 }
@@ -574,30 +574,36 @@ LzyMat4f lzy_mat4f_rotate(LzyVec3f eulerAngles)
     f32 cx, cy, cz,
     sx, sy, sz, czsx, cxcz, sysz;
     
-    sx   = sinf(angles[0]); cx = cosf(angles[0]);
-    sy   = sinf(angles[1]); cy = cosf(angles[1]);
-    sz   = sinf(angles[2]); cz = cosf(angles[2]);
+    sx   = sinf(eulerAngles.x); cx = cosf(eulerAngles.x);
+    sy   = sinf(eulerAngles.y); cy = cosf(eulerAngles.y);
+    sz   = sinf(eulerAngles.z); cz = cosf(eulerAngles.z);
     
     czsx = cz * sx;
     cxcz = cx * cz;
     sysz = sy * sz;
     
-    retval.xmms[0] = _mm_set_ps(cy * cz, 
+    retval.xmms[0] = _mm_set_ps(
+                                0.0f,
+                                -cxcz * sy + sx * sz,
                                 czsx * sy + cx * sz,
-                               -cxcz * sy + sx * sz,
-                                0.0f);
+                                cy * cz
+                                );
     
-    retval.xmms[1] = _mm_set_ps(-cy * sz,
-                                cxcz - sx * sysz,
+    retval.xmms[1] = _mm_set_ps(
+                                0.0f,
                                 czsx + cx * sysz,
-                                0.0f);
+                                cxcz - sx * sysz,
+                                -cy * sz
+                                );
     
-    retval.xmms[2] = _mm_set_ps(sy,
-                                -cy * sx,
+    retval.xmms[2] = _mm_set_ps(
+                                0.0f,
                                 cx * cy,
-                                0.0f);
+                                -cy * sx,
+                                sy
+                                );
     
-    retval.xmms[3] = _mm_set_ps(0, 0, 0, 1);
+    retval.xmms[3] = _mm_set_ps(1, 0, 0, 0);
     
-    return mat;
+    return retval;
 }

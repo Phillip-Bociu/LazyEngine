@@ -40,10 +40,10 @@
 #endif
 
 #ifdef LEXPORT
-	#ifdef _MSC_VER
-	#define LAPI __declspec(dllexport)
+#ifdef _MSC_VER
+#define LAPI __declspec(dllexport)
 #else
-	#define LAPI __attribute__((visibility("default")))
+#define LAPI __attribute__((visibility("default")))
 #endif
 #else
 #ifdef _MSC_VER
